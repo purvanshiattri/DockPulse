@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # DockPulse Main Monitoring Dashboard Service
+  dockpulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dockpulse-dashboard
+    
+    # --------------------------------------------------------------------------
+    # CONTAINER NETWORKING BASIC PRINCIPLE:
+    # Maps port 5000 on the host machine to port 5000 inside the container namespace.
+    # This allows users to browse to http://localhost:5000 on the host to hit the Flask app.
+    # --------------------------------------------------------------------------
+    ports:
+      - "5000:5000"
+    
+    # --------------------------------------------------------------------------
+    # VOLUMES & DOCKER ENGINE ACCESS:
+    # 1. Mount current directory (.) to /app inside the container for hot-reloading code.
+    # 2. Mount the host machine's Docker daemon socket (/var/run/docker.sock).
+    #    CRITICAL SPECIFICATION: The Python Docker SDK inside the container needs 
+    #    to talk to the Docker daemon to get stats. Since the daemon is running on 
+    #    the host machine, we mount the socket file so the container's SDK client 
+    #    can issue API requests (e.g. client.containers.list()) directly to the host.
+    # --------------------------------------------------------------------------
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+    environment:
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+      
+    # Resource quotas to simulate production cloud constraints
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+          
+    restart: unless-stopped

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-lite-service
+  labels:
+    app: grafana-lite
+spec:
+  # Type NodePort exposes the application to external browser traffic
+  # on a static port (32000) across all Kubernetes cluster nodes
+  type: NodePort
+  selector:
+    app: grafana-lite
+  ports:
+    - protocol: TCP
+      port: 80          # External service exposure port
+      targetPort: 5000  # Internal container binding port
+      nodePort: 32000   # Explicit external node mapping port for local testing

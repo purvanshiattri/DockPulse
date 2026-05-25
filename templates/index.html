@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DockPulse | Real-Time Docker Container Monitoring</title>
+    <!-- Include Google Font 'Outfit' and 'Inter' for premium modern typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js for beautiful graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for sidebar and utility icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Docker Daemon Offline Warning Overlay -->
+    <div id="docker-offline-overlay" class="offline-overlay">
+        <div class="offline-box">
+            <i class="fa-solid fa-triangle-exclamation warning-icon"></i>
+            <h2>Docker Engine Not Detected</h2>
+            <p>DockPulse is unable to communicate with Docker Desktop. Please make sure that Docker Desktop is launched and running on your local machine.</p>
+            <button class="btn-retry" id="btn-docker-retry">
+                <i class="fa-solid fa-arrows-rotate"></i> Retry Connection
+            </button>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation (DockPulse Branding) -->
+        <aside class="sidebar">
+            <div class="sidebar-logo" id="logo-back-home" style="cursor: pointer;">
+                <i class="fa-solid fa-heart-pulse logo-icon"></i>
+                <span class="logo-text">Dock<span class="logo-accent">Pulse</span></span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" id="nav-overview-btn">
+                        <a href="#"><i class="fa-solid fa-chart-line"></i><span>Cluster Overview</span></a>
+                    </li>
+                </ul>
+                
+                <!-- Dynamic List of Monitored Containers (From Docker SDK) -->
+                <div class="sidebar-section-title">
+                    <i class="fa-brands fa-docker"></i> Containers
+                </div>
+                <div class="sidebar-counts-row" id="sidebar-counts-row">
+                    <span class="count-pill running-pill">Running: <span id="sidebar-running-count">0</span></span>
+                    <span class="count-pill stopped-pill">Stopped: <span id="sidebar-stopped-count">0</span></span>
+                </div>
+                <ul class="sidebar-container-list" id="sidebar-container-list">
+                    <!-- Loaded dynamically via JavaScript API calls -->
+                    <li class="container-list-loading">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="node-pill">
+                    <span class="status-dot online"></span>
+                    <span class="node-name">docker-desktop</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Workspace -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="breadcrumbs">
+                    <span class="parent" id="breadcrumb-root">Home</span>
+                    <span class="separator">/</span>
+                    <span class="parent" id="breadcrumb-sec">Infrastructure</span>
+                    <span class="separator">/</span>
+                    <span class="current" id="breadcrumb-active">Cluster Overview</span>
+                </div>
+                
+                <div class="header-controls">
+                    <div class="control-group">
+                        <label for="poll-interval"><i class="fa-solid fa-arrows-rotate"></i> Poll Interval:</label>
+                        <select id="poll-interval" class="custom-select">
+                            <option value="2000" selected>2s (Real-Time)</option>
+                            <option value="5000">5s (Normal)</option>
+                            <option value="10000">10s (Eco)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="time-display" id="time-display">
+                        <i class="fa-regular fa-clock"></i> --:--:--
+                    </div>
+                </div>
+            </header>
+
+            <!-- 1. OVERVIEW VIEW MODE (Default Workspace) -->
+            <div id="overview-workspace-view" class="workspace-view active">
+                <section class="tab-content active">
+                    
+                    <!-- Overview Host Header -->
+                    <div class="view-header">
+                        <h2>Docker Node Overview</h2>
+                        <p>Real-time physical CPU/RAM consumption mapping alongside active microservice container nodes.</p>
+                    </div>
+
+                    <!-- 5 Host Metrics Cards Grid -->
+                    <div class="metrics-grid">
+                        <!-- Host CPU CARD -->
+                        <div class="metric-card card-cpu">
+                            <div class="card-header">
+                                <span class="card-title">HOST CPU UTILIZATION</span>
+                                <i class="fa-solid fa-microchip card-icon cpu-color"></i>
+                            </div>
+                            <div class="card-value" id="cpu-value">0.0%</div>
+                            <div class="card-progress-container">
+                                <div class="card-progress-bar cpu-bg" id="cpu-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="card-subtext" id="cpu-sub">Cores: Monitoring Active</div>
+                        </div>
+                        
+                        <!-- Host RAM CARD -->
+                        <div class="metric-card card-ram">
+                            <div class="card-header">
+                                <span class="card-title">HOST MEMORY (RAM)</span>
+                                <i class="fa-solid fa-memory card-icon ram-color"></i>
+                            </div>
+                            <div class="card-value" id="ram-value">0.0%</div>
+                            <div class="card-progress-container">
+                                <div class="card-progress-bar ram-bg" id="ram-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="card-subtext" id="ram-sub">Used: 0 GB / 0 GB</div>
+                        </div>
+                        
+                        <!-- Host DISK CARD -->
+                        <div class="metric-card card-disk">
+                            <div class="card-header">
+                                <span class="card-title">STORAGE SPACE</span>
+                                <i class="fa-solid fa-hard-drive card-icon disk-color"></i>
+                            </div>
+                            <div class="card-value" id="disk-value">0.0%</div>
+                            <div class="card-progress-container">
+                                <div class="card-progress-bar disk-bg" id="disk-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="card-subtext" id="disk-sub">Available: 0 GB</div>
+                        </div>
+                        
+                        <!-- Active Containers Card -->
+                        <div class="metric-card card-processes">
+                            <div class="card-header">
+                                <span class="card-title">RUNNING CONTAINERS</span>
+                                <i class="fa-brands fa-docker card-icon proc-color"></i>
+                            </div>
+                            <div class="card-value" id="running-containers-card-val">0</div>
+                            <div class="card-progress-container empty-bar"></div>
+                            <div class="card-subtext">Direct Docker Desktop Engine feed</div>
+                        </div>
+                        
+                        <!-- Host UPTIME CARD -->
+                        <div class="metric-card card-uptime">
+                            <div class="card-header">
+                                <span class="card-title">HOST UPTIME</span>
+                                <i class="fa-solid fa-clock-rotate-left card-icon uptime-color"></i>
+                            </div>
+                            <div class="card-value uptime-text" id="uptime-value">--</div>
+                            <div class="card-progress-container empty-bar"></div>
+                            <div class="card-subtext">System Boot Time checked</div>
+                        </div>
+                    </div>
+
+                    <!-- Host Live Charts Section -->
+                    <div class="charts-row">
+                        <!-- Resource Line Chart (CPU/RAM Timeline) -->
+                        <div class="chart-panel line-panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-chart-area"></i> Host Resource Utilization History</h3>
+                                <div class="chart-legend">
+                                    <span class="legend-item"><span class="legend-dot cpu-bg"></span>CPU (%)</span>
+                                    <span class="legend-item"><span class="legend-dot ram-bg"></span>RAM (%)</span>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="resourceLineChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Disk Doughnut Chart -->
+                        <div class="chart-panel doughnut-panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-chart-pie"></i> Disk Allocation</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="diskDoughnutChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Docker Daemon Container Runtime -->
+                    <div class="dashboard-section-header">
+                        <h2><i class="fa-solid fa-cubes"></i> Cluster Active Container Feed</h2>
+                        <span class="status-badge running-count-badge" id="running-count-badge">Running: --</span>
+                    </div>
+
+                    <!-- Containers Table -->
+                    <div class="table-card">
+                        <table class="container-table">
+                            <thead>
+                                <tr>
+                                    <th>Container ID</th>
+                                    <th>Container Name</th>
+                                    <th>Image Layer</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overview-container-table-body">
+                                <tr>
+                                    <td colspan="5" class="loading-state">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Initializing socket runtime connections...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 2. CONTAINER DETAIL VIEW MODE (Selected Workspace) -->
+            <div id="container-detail-workspace-view" class="workspace-view">
+                <section class="tab-content active">
+                    
+                    <!-- Back navigation button -->
+                    <div class="detail-header-action">
+                        <button class="btn-back" id="btn-detail-back">
+                            <i class="fa-solid fa-arrow-left"></i> Back to Overview
+                        </button>
+                    </div>
+                    
+                    <!-- Container Header Title -->
+                    <div class="view-header container-details-title-row">
+                        <div class="title-left">
+                            <h2 id="detail-container-name">jenkins-server</h2>
+                            <span class="image-name" id="detail-container-image">jenkins/jenkins:lts</span>
+                        </div>
+                        <div class="title-right">
+                            <span class="badge-status running" id="detail-container-status-badge">
+                                <span class="blink-dot"></span>
+                                <span id="detail-container-status-text">running</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 4 Container-specific Cards Grid -->
+                    <div class="metrics-grid">
+                        <!-- CPU Usage Card -->
+                        <div class="metric-card card-cpu">
+                            <div class="card-header">
+                                <span class="card-title">CONTAINER CPU USAGE</span>
+                                <i class="fa-solid fa-microchip card-icon cpu-color"></i>
+                            </div>
+                            <div class="card-value" id="detail-cpu-val">0.0%</div>
+                            <div class="card-progress-container">
+                                <div class="card-progress-bar cpu-bg" id="detail-cpu-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="card-subtext">Active process slice allocation</div>
+                        </div>
+                        
+                        <!-- Memory Usage Card -->
+                        <div class="metric-card card-ram">
+                            <div class="card-header">
+                                <span class="card-title">MEMORY ALLOCATION</span>
+                                <i class="fa-solid fa-memory card-icon ram-color"></i>
+                            </div>
+                            <div class="card-value" id="detail-ram-val">0 MB / 0 MB</div>
+                            <div class="card-progress-container">
+                                <div class="card-progress-bar ram-bg" id="detail-ram-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="card-subtext" id="detail-ram-pct">Usage Percentage: 0.0%</div>
+                        </div>
+                        
+                        <!-- Network I/O Bandwidth Card -->
+                        <div class="metric-card card-disk">
+                            <div class="card-header">
+                                <span class="card-title">NETWORK I/O (RX / TX)</span>
+                                <i class="fa-solid fa-network-wired card-icon disk-color"></i>
+                            </div>
+                            <div class="card-value network-io-value" id="detail-network-val">0 B / 0 B</div>
+                            <div class="card-progress-container empty-bar"></div>
+                            <div class="card-subtext">Combined interface metrics</div>
+                        </div>
+                        
+                        <!-- Container Uptime Card -->
+                        <div class="metric-card card-uptime">
+                            <div class="card-header">
+                                <span class="card-title">CONTAINER UPTIME</span>
+                                <i class="fa-solid fa-clock-rotate-left card-icon uptime-color"></i>
+                            </div>
+                            <div class="card-value uptime-text" id="detail-uptime-val">--</div>
+                            <div class="card-progress-container empty-bar"></div>
+                            <div class="card-subtext">Calculated from Docker system StartTime</div>
+                        </div>
+                    </div>
+
+                    <!-- Per-Container Charts Section -->
+                    <div class="charts-row">
+                        <!-- Container CPU Live Timeline Chart -->
+                        <div class="chart-panel container-chart-panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-chart-line"></i> Container CPU Usage History (%)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="containerCpuChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Container Memory Live Timeline Chart -->
+                        <div class="chart-panel container-chart-panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-chart-line"></i> Container Memory Usage History (MB)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="containerMemoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Core Application Logic Script -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
