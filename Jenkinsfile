@@ -2,19 +2,14 @@ pipeline {
     agent any
 
     options {
-        // Prevent multiple builds running simultaneously on the same agent
+        // Prevent concurrent builds on the same agent workspace to avoid conflicts
         disableConcurrentBuilds()
-        // Print build timestamps in the log
+        // Print build timestamps in the console logs for easier debugging
         timestamps()
     }
 
-    environment {
-        REGISTRY = 'docker.io'
-        IMAGE_NAME = 'dockpulse-dashboard'
-        KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-prod'
-    }
-
     stages {
+        // STAGE 1: Pull the latest source code from the Git repository (GitHub)
         stage('1. Checkout Code') {
             steps {
                 echo 'Checking out revision from source repository...'
@@ -22,61 +17,18 @@ pipeline {
             }
         }
 
-        stage('2. Environment & Dependencies') {
+        // STAGE 2: Build the Docker image from our Dockerfile
+        // --------------------------------------------------------------------------
+        // ENVIRONMENT-AGNOSTIC BUILD PRINCIPLE:
+        // We do not need Python or pip installed on the Jenkins container agent itself.
+        // The Dockerfile handles copying requirements.txt and running 'pip install' 
+        // inside an isolated, containerized environment during the build process.
+        // This keeps the Jenkins host clean and avoids version conflicts between builds.
+        // --------------------------------------------------------------------------
+        stage('2. Docker Build') {
             steps {
-                echo 'Setting up Python virtual environment and installing modules...'
-                // Install requirements in user environment or virtualenv
-                sh '''
-                    python -m venv venv
-                    . venv/bin/activate || ./venv/Scripts/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
-            }
-        }
-
-        stage('3. Lint & Code Quality') {
-            steps {
-                echo 'Performing static code compile validation...'
-                // Compiles all python files in the directory to check for syntax issues
-                sh '''
-                    . venv/bin/activate || ./venv/Scripts/activate
-                    python -m compileall -q .
-                '''
-            }
-        }
-
-        stage('4. Docker Build') {
-            steps {
-                echo "Building Docker container image: ${IMAGE_NAME}:${BUILD_NUMBER}..."
-                sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-            }
-        }
-
-        stage('5. Docker Tag & Push') {
-            steps {
-                echo 'Pushing image layers to Docker Registry...'
-                // In production, we would authenticate and push using withCredentials block:
-                // withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                //     sh "docker login -u $USER -p $PASS"
-                //     sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${REGISTRY}/${USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                //     sh "docker push ${REGISTRY}/${USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                // }
-                sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
-                echo 'Docker tag latest created successfully (local registry simulated).'
-            }
-        }
-
-        stage('6. Deploy to Kubernetes') {
-            steps {
-                echo 'Deploying resources to Kubernetes cluster...'
-                // In production, we select the correct context using kubeconfig credentials:
-                // configFileProvider([configFile(fileId: KUBECONFIG_CREDENTIAL_ID, targetLocation: 'kubeconfig')]) {
-                //     sh "KUBECONFIG=kubeconfig kubectl apply -f k8s/"
-                // }
-                sh "kubectl apply -f k8s/deployment.yaml"
-                sh "kubectl apply -f k8s/service.yaml"
-                echo 'Deployment configurations applied to Pod Replication Controllers.'
+                echo 'Building the DockPulse container image...'
+                sh 'docker build -t dockpulse .'
             }
         }
     }
@@ -84,12 +36,12 @@ pipeline {
     post {
         success {
             echo '==================================================='
-            echo '  CI/CD PIPELINE EXECUTION COMPLETED SUCCESSFULLY  '
+            echo '  CI PIPELINE COMPLETED SUCCESSFULLY: IMAGE BUILT  '
             echo '==================================================='
         }
         failure {
             echo '==================================================='
-            echo '  CI/CD PIPELINE EXECUTION FAILED! CHECK LOGS.     '
+            echo '  CI PIPELINE FAILED: CHECK LOGS                   '
             echo '==================================================='
         }
     }
