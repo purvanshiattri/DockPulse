@@ -50,7 +50,7 @@ pipeline {
                 sh 'docker rm dockpulse-container || true'
                 
                 echo 'Deploying fresh DockPulse container instance...'
-                sh 'docker run -d -p 5000:5000 --name dockpulse-container -v /var/run/docker.sock:/var/run/docker.sock dockpulse'
+                sh 'docker run -d -p 5001:5000 --name dockpulse-container -v /var/run/docker.sock:/var/run/docker.sock dockpulse'
             }
         }
     }
