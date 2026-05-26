@@ -31,18 +31,40 @@ pipeline {
                 sh 'docker build -t dockpulse .'
             }
         }
+
+        // STAGE 3: Deploy Container
+        // --------------------------------------------------------------------------
+        // AUTOMATIC DEPLOYMENT / CD PIPELINE:
+        // 1. Stop Existing Container: Free up host port 5000 and the container name 
+        //    'dockpulse-container' to avoid name collision and port allocation conflicts.
+        // 2. Safe Removal: Safely deletes the old container resource layers.
+        // 3. Port Mapping (-p 5000:5000): Maps host port 5000 to container port 5000,
+        //    allowing external web traffic to reach the Flask application.
+        // 4. Volume Mounting (-v /var/run/docker.sock): Mounts the host's Docker socket 
+        //    so the Python Docker SDK inside the container can track real container metrics on the host.
+        // --------------------------------------------------------------------------
+        stage('3. Deploy Container') {
+            steps {
+                echo 'Stopping and cleaning up old DockPulse deployments...'
+                sh 'docker stop dockpulse-container || true'
+                sh 'docker rm dockpulse-container || true'
+                
+                echo 'Deploying fresh DockPulse container instance...'
+                sh 'docker run -d -p 5000:5000 --name dockpulse-container -v /var/run/docker.sock:/var/run/docker.sock dockpulse'
+            }
+        }
     }
 
     post {
         success {
-            echo '==================================================='
-            echo '  CI PIPELINE COMPLETED SUCCESSFULLY: IMAGE BUILT  '
-            echo '==================================================='
+            echo '========================================================================'
+            echo '  CI/CD PIPELINE EXECUTION SUCCEEDED: IMAGE BUILT & CONTAINER DEPLOYED  '
+            echo '========================================================================'
         }
         failure {
-            echo '==================================================='
-            echo '  CI PIPELINE FAILED: CHECK LOGS                   '
-            echo '==================================================='
+            echo '========================================================================'
+            echo '  CI/CD PIPELINE EXECUTION FAILED: CHECK CONSOLE OUTPUT FOR FAILURE LOG '
+            echo '========================================================================'
         }
     }
 }
