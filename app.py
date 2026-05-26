@@ -13,9 +13,10 @@ from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
-# Thread-safe global store for host system metrics history (last 20 data points)
+# Thread-safe global store for host system metrics history (last 50 data points)
 # Deque automatically drops the oldest item when it exceeds maxlen.
-METRIC_HISTORY_LIMIT = 20
+# Store 30-50 data points to avoid memory bloat while seeding graphs smoothly.
+METRIC_HISTORY_LIMIT = 50
 host_metrics_history = deque(maxlen=METRIC_HISTORY_LIMIT)
 history_lock = threading.Lock()
 
@@ -60,6 +61,22 @@ def host_metric_collector():
     """
     Background worker that collects host system metrics (CPU, RAM, Disk) every 2 seconds.
     This powers the main DockPulse Cluster Overview dashboard.
+    
+    --------------------------------------------------------------------------
+    OBSERVABILITY TIME-SERIES & HISTORY ARRAYS DESIGN PRINCIPLE:
+    1. WHY HISTORY ARRAYS ARE REQUIRED: Time-series line/area charts (like CPU & RAM history) 
+       require a sequential series of chronological data points (X = timestamp, Y = value) 
+       to plot connected vectors. A single snapshot metric is insufficient for history.
+    2. WHY GRAPHS REMAIN EMPTY WITHOUT BACKEND HISTORY: When a user refreshes their browser, 
+       any client-side JavaScript memory is wiped out. If the backend does not persist and 
+       buffer historical coordinates, the chart will render completely blank on page load, 
+       forcing the user to wait for multiple polling cycles to see a line begin to form.
+    3. WHY ROLLING DEQUES ARE MEMORY EFFICIENT: Storing infinite logs in memory leads to OOM 
+       crashes. Using a double-ended queue (collections.deque) with a strict 'maxlen=50' 
+       enforces an upper memory boundary. Appending new points drops the oldest elements 
+       automatically in O(1) time complexity, preventing memory leaks while keeping enough 
+       history to pre-populate charts instantly.
+    --------------------------------------------------------------------------
     """
     print("Starting background host metric collector thread...")
     while True:

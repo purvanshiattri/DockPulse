@@ -127,27 +127,33 @@ function initializeCharts() {
         }
     });
 
-    const hostDiskCtx = document.getElementById("diskDoughnutChart").getContext("2d");
+    const hostDiskCtx = document.getElementById("diskHistoryChart").getContext("2d");
+    const diskGrad = hostDiskCtx.createLinearGradient(0, 0, 0, 250);
+    diskGrad.addColorStop(0, "rgba(255, 160, 0, 0.2)");
+    diskGrad.addColorStop(1, "rgba(255, 160, 0, 0.0)");
+
     hostDiskChart = new Chart(hostDiskCtx, {
-        type: 'doughnut',
+        type: 'line',
         data: {
-            labels: ['Used (GB)', 'Free (GB)'],
+            labels: [],
             datasets: [{
-                data: [0, 100],
-                backgroundColor: ['#ffa000', 'rgba(255, 255, 255, 0.04)'],
-                borderColor: '#181b1f',
-                borderWidth: 3
+                label: 'Disk Usage (%)',
+                borderColor: '#ffa000',
+                backgroundColor: diskGrad,
+                borderWidth: 2,
+                pointRadius: 1,
+                fill: true,
+                tension: 0.4,
+                data: []
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '72%',
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#9fa2a5', boxWidth: 10, font: { size: 10, family: 'Inter' } }
-                }
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: 'rgba(255, 255, 255, 0.03)' }, ticks: { color: '#9fa2a5', font: { size: 9 } } },
+                y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#9fa2a5', font: { size: 9 } } }
             }
         }
     });
@@ -221,53 +227,85 @@ function initializeCharts() {
 }
 
 
-// 3. Update Host Overview Dashboard UI
+/// 3. Update Host Overview Dashboard UI
 function updateHostDashboard(data, isInitialLoad = false) {
-    // Update metric cards
-    cpuValueEl.innerText = `${data.latest.cpu_percentage.toFixed(1)}%`;
-    cpuBarEl.style.width = `${data.latest.cpu_percentage}%`;
-    
-    ramValueEl.innerText = `${data.latest.ram_percentage.toFixed(1)}%`;
-    ramBarEl.style.width = `${data.latest.ram_percentage}%`;
-    ramSubEl.innerText = `Used: ${data.latest.ram_used_gb} GB / ${data.latest.ram_total_gb} GB`;
-    
-    diskValueEl.innerText = `${data.latest.disk_percentage.toFixed(1)}%`;
-    diskBarEl.style.width = `${data.latest.disk_percentage}%`;
-    diskSubEl.innerText = `Available: ${data.latest.disk_free_gb} GB / ${data.latest.disk_total_gb} GB`;
-    
-    procValueEl.innerText = data.latest.processes_count;
-    uptimeValueEl.innerText = data.latest.uptime;
+    // --------------------------------------------------------------------------
+    // OBSERVABILITY TIME-SERIES DESIGN & SIMPLIFIED observability CARDS:
+    // 1. TIME-SERIES NEED HISTORY: A time-series chart cannot plot a line without 
+    //    knowing what happened in past ticks. History arrays represent the "timeline".
+    // 2. RETRY SEEDING: By seeding hostResourceChart and hostDiskChart with data.history 
+    //    on first load, they render immediately with up to 50 previous coordinates.
+    // 3. NO COMPLICATED CLUTTER: Removing Host Uptime reduces cognitive noise. Uptime 
+    //    is an infrastructure status flag, whereas CPU, memory, and container counters 
+    //    are live resource streams essential for active cluster operations.
+    // --------------------------------------------------------------------------
 
-    // Update Line Chart History
-    if (isInitialLoad) {
-        const labels = [];
-        const cpuPoints = [];
-        const ramPoints = [];
-        data.history.forEach(point => {
-            labels.push(point.timestamp);
-            cpuPoints.push(point.cpu_percentage);
-            ramPoints.push(point.ram_percentage);
-        });
-        hostResourceChart.data.labels = labels;
-        hostResourceChart.data.datasets[0].data = cpuPoints;
-        hostResourceChart.data.datasets[1].data = ramPoints;
-        hostResourceChart.update();
-    } else {
-        hostResourceChart.data.labels.push(data.latest.timestamp);
-        hostResourceChart.data.datasets[0].data.push(data.latest.cpu_percentage);
-        hostResourceChart.data.datasets[1].data.push(data.latest.ram_percentage);
-        
-        if (hostResourceChart.data.labels.length > 20) {
-            hostResourceChart.data.labels.shift();
-            hostResourceChart.data.datasets[0].data.shift();
-            hostResourceChart.data.datasets[1].data.shift();
+    // Update Host CPU Card
+    if (cpuValueEl) cpuValueEl.innerText = `${data.latest.cpu_percentage.toFixed(1)}%`;
+    if (cpuBarEl) cpuBarEl.style.width = `${data.latest.cpu_percentage}%`;
+    
+    // Update Host Memory Card
+    if (ramValueEl) ramValueEl.innerText = `${data.latest.ram_percentage.toFixed(1)}%`;
+    if (ramBarEl) ramBarEl.style.width = `${data.latest.ram_percentage}%`;
+    if (ramSubEl) ramSubEl.innerText = `Used: ${data.latest.ram_used_gb} GB / ${data.latest.ram_total_gb} GB`;
+
+    // Note: Total Containers Card and Running Containers Card are updated dynamically 
+    // inside the fetchContainersList function to reflect live Docker Desktop statistics!
+
+    // Update Host CPU/RAM Line Chart
+    if (hostResourceChart) {
+        if (isInitialLoad) {
+            const labels = [];
+            const cpuPoints = [];
+            const ramPoints = [];
+            data.history.forEach(point => {
+                labels.push(point.timestamp);
+                cpuPoints.push(point.cpu_percentage);
+                ramPoints.push(point.ram_percentage);
+            });
+            hostResourceChart.data.labels = labels;
+            hostResourceChart.data.datasets[0].data = cpuPoints;
+            hostResourceChart.data.datasets[1].data = ramPoints;
+            hostResourceChart.update();
+        } else {
+            hostResourceChart.data.labels.push(data.latest.timestamp);
+            hostResourceChart.data.datasets[0].data.push(data.latest.cpu_percentage);
+            hostResourceChart.data.datasets[1].data.push(data.latest.ram_percentage);
+            
+            // Limit history chart display size to METRIC_HISTORY_LIMIT (50 data points)
+            if (hostResourceChart.data.labels.length > 50) {
+                hostResourceChart.data.labels.shift();
+                hostResourceChart.data.datasets[0].data.shift();
+                hostResourceChart.data.datasets[1].data.shift();
+            }
+            hostResourceChart.update();
         }
-        hostResourceChart.update();
     }
 
-    // Update Disk Doughnut
-    hostDiskChart.data.datasets[0].data = [data.latest.disk_used_gb, data.latest.disk_free_gb];
-    hostDiskChart.update();
+    // Update Host Disk Utilization History Line Chart
+    if (hostDiskChart) {
+        if (isInitialLoad) {
+            const diskLabels = [];
+            const diskPoints = [];
+            data.history.forEach(point => {
+                diskLabels.push(point.timestamp);
+                diskPoints.push(point.disk_percentage);
+            });
+            hostDiskChart.data.labels = diskLabels;
+            hostDiskChart.data.datasets[0].data = diskPoints;
+            hostDiskChart.update();
+        } else {
+            hostDiskChart.data.labels.push(data.latest.timestamp);
+            hostDiskChart.data.datasets[0].data.push(data.latest.disk_percentage);
+            
+            // Limit history chart display size to METRIC_HISTORY_LIMIT (50 data points)
+            if (hostDiskChart.data.labels.length > 50) {
+                hostDiskChart.data.labels.shift();
+                hostDiskChart.data.datasets[0].data.shift();
+            }
+            hostDiskChart.update();
+        }
+    }
 }
 
 
@@ -290,13 +328,19 @@ async function fetchContainersList() {
         // Hide Docker offline overlay if it was visible
         hideDockerOfflineOverlay();
         
-        // Calculate running vs stopped count from real container status fields
+        // Calculate running, total, and stopped count from real containers array
+        const totalCount = containers.length;
         const runningCount = containers.filter(c => c.status === 'running').length;
-        const stoppedCount = containers.length - runningCount;
+        const stoppedCount = totalCount - runningCount;
         
-        // Update overview table badge and main summary card
+        // Update overview table badge
         runningCountBadge.innerText = `Running: ${runningCount}`;
-        runningContainersCardVal.innerText = runningCount;
+        
+        // Update the overview dashboard metric cards for container stats
+        const totalContainersValEl = document.getElementById("total-containers-val");
+        const runningContainersValEl = document.getElementById("running-containers-card-val");
+        if (totalContainersValEl) totalContainersValEl.innerText = totalCount;
+        if (runningContainersValEl) runningContainersValEl.innerText = runningCount;
 
         // Update the sidebar count indicator pills dynamically
         const sidebarRunningCount = document.getElementById("sidebar-running-count");

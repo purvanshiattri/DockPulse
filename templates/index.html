@@ -105,7 +105,15 @@
                         <p>Real-time physical CPU/RAM consumption mapping alongside active microservice container nodes.</p>
                     </div>
 
-                    <!-- 5 Host Metrics Cards Grid -->
+                    <!-- 
+                       OBSERVABILITY CARD LAYOUT OPTIMIZATION:
+                       1. WHY HOST UPTIME WAS REMOVED: Host uptime is a static, slow-changing metric 
+                          that takes up high-priority screen space without providing live actionable alerts. 
+                          By removing it, we keep the overview strictly focused on active container nodes.
+                       2. WHY SIMPLIFIED observability DASHBOARDS IMPROVE CLARITY: Restricting the top-level 
+                          overview to exactly 4 key container and system-wide metrics reduces visual noise 
+                          and cognitive overload, allowing operators to spot CPU spikes or container crashes instantly.
+                    -->
                     <div class="metrics-grid">
                         <!-- Host CPU CARD -->
                         <div class="metric-card card-cpu">
@@ -133,20 +141,18 @@
                             <div class="card-subtext" id="ram-sub">Used: 0 GB / 0 GB</div>
                         </div>
                         
-                        <!-- Host DISK CARD -->
+                        <!-- Total Containers Card -->
                         <div class="metric-card card-disk">
                             <div class="card-header">
-                                <span class="card-title">STORAGE SPACE</span>
-                                <i class="fa-solid fa-hard-drive card-icon disk-color"></i>
+                                <span class="card-title">TOTAL CONTAINERS</span>
+                                <i class="fa-solid fa-boxes-stacked card-icon disk-color"></i>
                             </div>
-                            <div class="card-value" id="disk-value">0.0%</div>
-                            <div class="card-progress-container">
-                                <div class="card-progress-bar disk-bg" id="disk-bar" style="width: 0%"></div>
-                            </div>
-                            <div class="card-subtext" id="disk-sub">Available: 0 GB</div>
+                            <div class="card-value" id="total-containers-val">0</div>
+                            <div class="card-progress-container empty-bar"></div>
+                            <div class="card-subtext">All registered Docker container nodes</div>
                         </div>
                         
-                        <!-- Active Containers Card -->
+                        <!-- Running Containers Card -->
                         <div class="metric-card card-processes">
                             <div class="card-header">
                                 <span class="card-title">RUNNING CONTAINERS</span>
@@ -154,18 +160,7 @@
                             </div>
                             <div class="card-value" id="running-containers-card-val">0</div>
                             <div class="card-progress-container empty-bar"></div>
-                            <div class="card-subtext">Direct Docker Desktop Engine feed</div>
-                        </div>
-                        
-                        <!-- Host UPTIME CARD -->
-                        <div class="metric-card card-uptime">
-                            <div class="card-header">
-                                <span class="card-title">HOST UPTIME</span>
-                                <i class="fa-solid fa-clock-rotate-left card-icon uptime-color"></i>
-                            </div>
-                            <div class="card-value uptime-text" id="uptime-value">--</div>
-                            <div class="card-progress-container empty-bar"></div>
-                            <div class="card-subtext">System Boot Time checked</div>
+                            <div class="card-subtext">Active running execution layers</div>
                         </div>
                     </div>
 
@@ -185,13 +180,16 @@
                             </div>
                         </div>
                         
-                        <!-- Disk Doughnut Chart -->
-                        <div class="chart-panel doughnut-panel">
+                        <!-- Disk History Chart -->
+                        <div class="chart-panel line-panel">
                             <div class="panel-header">
-                                <h3><i class="fa-solid fa-chart-pie"></i> Disk Allocation</h3>
+                                <h3><i class="fa-solid fa-chart-line"></i> Disk Utilization History</h3>
+                                <div class="chart-legend">
+                                    <span class="legend-item"><span class="legend-dot disk-bg"></span>Disk (%)</span>
+                                </div>
                             </div>
                             <div class="chart-container">
-                                <canvas id="diskDoughnutChart"></canvas>
+                                <canvas id="diskHistoryChart"></canvas>
                             </div>
                         </div>
                     </div>
