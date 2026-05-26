@@ -44,3 +44,34 @@ services:
           memory: 256M
           
     restart: unless-stopped
+
+  # Prometheus metrics collection and storage engine
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: dockpulse-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - dockpulse
+    restart: unless-stopped
+
+  # Grafana analytics visualization layer
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: dockpulse-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+

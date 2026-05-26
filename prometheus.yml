@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s      # Scrape targets every 5 seconds (real-time responsiveness)
+  evaluation_interval: 5s  # Evaluate rules every 5 seconds
+
+# A scrape configuration containing exactly one endpoint to scrape
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'dockpulse'
+    metrics_path: '/metrics'
+    static_configs:
+      # In the docker-compose bridge network, the Flask app is addressable via the service name 'dockpulse'
+      - targets: ['dockpulse:5000']

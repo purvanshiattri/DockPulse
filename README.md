@@ -9,34 +9,69 @@ If Docker Desktop is offline, DockPulse warns the user gracefully via a glassmor
 ## 🏗️ Architectural Design & Metrics Flow
 
 ```
-                      +---------------------------------------+
-                      |        Local Docker Desktop Engine    |
-                      |   [Containers, Memory, CPU, Net I/O]  |
-                      +-------------------+-------------------+
-                                          |
-                              (npipe / docker.sock)
-                                          v
-                      +---------------------------------------+
-                      |         Flask REST API Server         |
-                      |   - /api/containers                   |
-                      |   - /api/container/<id>               |
-                      |   - /api/system-metrics               |
-                      +-------------------+-------------------+
-                                          ^
-                                     (HTTP Polling)
-                                          |
-                      +-------------------+-------------------+
-                      |         DockPulse HTML5 Frontend      |
-                      |   - Sidebar container selectors       |
-                      |   - Per-Container live graphs         |
-                      |   - Automatic connection retry loops  |
-                      +---------------------------------------+
+                      +------------------------------------------+
+                      |        Local Docker Desktop Engine       |
+                      |    [Containers, Memory, CPU, Net I/O]    |
+                      +--------------------+---------------------+
+                                           |
+                                 (npipe / docker.sock)
+                                           v
+                      +--------------------+---------------------+
+                      |      DockPulse Flask Backend App         |
+                      |   - Port 5000                            |
+                      |   - /api/containers (UI)                 |
+                      |   - /metrics (Prometheus Exporter API)   |
+                      +--------------------+---------------------+
+                            |              |
+                (HTTP Poll) |              | (Scrape Poll every 5s)
+                            v              v
+         +------------------+----+   +-----+---------------------+
+         |   DockPulse UI        |   |    Prometheus TSDB        |
+         |   - Port 5000         |   |    - Port 9090            |
+         |   - Custom Observability| |    - /metrics target      |
+         +-----------------------+   +-----+---------------------+
+                                           |
+                                           | (QL Queries / Pull)
+                                           v
+                                     +-----+---------------------+
+                                     |    Grafana Dashboards     |
+                                     |    - Port 3000                |
+                                     |    - Pre-provisioned Panels   |
+                                     +---------------------------+
 ```
 
 ### Key Highlights
 1. **True Real-time SDK Integration**: No more simulated container metrics. DockPulse retrieves raw statistics directly from the Docker daemon socket/pipe, parsing metrics like delta CPU ratios, virtual ethernet network packages, and startup ISO dates.
 2. **Self-Healing Connection Loop**: If DockPulse loses connection to Docker Desktop (or if the server is started while Docker is stopped), a prominent overlay warning is shown. The frontend runs a lightweight poll checking daemon status, automatically removing the block the moment Docker starts.
 3. **Double Live Graphing**: When you select a container from the sidebar list, DockPulse resets the active graph contexts and plots isolated real-time lines plotting container CPU load (%) and memory usage (MB) side-by-side.
+4. **Observability Integration**: DockPulse hosts a native `/metrics` exporter endpoint, exposing local host resources and real-time container metrics. Prometheus scrapes this data into a time-series database, and Grafana queries it to render historical graphs.
+
+---
+
+## 📊 Observability & Monitoring Ecosystem
+
+### 1. Prometheus Scrape Configuration
+Prometheus acts as the centralized time-series metrics collection and storage engine.
+* **Scrape interval**: Configured to `5s` in `prometheus.yml` to match the real-time nature of container scaling.
+* **Endpoint target**: Scrapes the `/metrics` endpoint exposed by the `dockpulse` Flask service inside the Docker Compose bridge network at `http://dockpulse:5000/metrics`.
+* **Exported Metric Metrics**:
+  * `dockpulse_host_cpu_percentage`: Current host CPU utilization.
+  * `dockpulse_host_memory_percentage`: Current host virtual memory RAM usage.
+  * `dockpulse_host_disk_percentage`: Host root disk utilization.
+  * `dockpulse_containers_total`: Total registered container nodes (running + stopped).
+  * `dockpulse_containers_running`: Count of active executing container nodes.
+  * `dockpulse_container_cpu_percentage`: Real-time container CPU load (labeled by name/ID).
+  * `dockpulse_container_memory_used_bytes`: Container RSS RAM allocation (cache subtracted).
+  * `dockpulse_container_status`: State index (1 for running, 0 for stopped/exited).
+
+### 2. Grafana Dashboard Provisioning
+Grafana serves as the visualization and advanced analytics interface.
+* **Automatic Datasource Setup**: Auto-provisions the local Prometheus container (`http://prometheus:9090`) as the default datasource.
+* **Pre-configured Dashboards**: Auto-loads a custom DevOps dashboard containing CPU, RAM, and Disk Gauges, container lifecycle state timelines, and historical line graphs plotting individual container workloads over time.
+* **Accessing the Stack**:
+  * DockPulse Application: `http://localhost:5000`
+  * Prometheus Dashboard: `http://localhost:9090`
+  * Grafana Telemetry Panels: `http://localhost:3000` (Default credentials: `admin` / `admin`)
 
 ---
 
@@ -45,15 +80,18 @@ If Docker Desktop is offline, DockPulse warns the user gracefully via a glassmor
 ```
 project/
 │
-├── app.py                # Python Flask server, SDK connector, stats parsers, REST APIs
-├── requirements.txt      # Python dependencies (Flask, psutil, docker)
+├── app.py                # Python Flask server, SDK connector, stats parsers, REST APIs, metrics exporter
+├── requirements.txt      # Python dependencies (Flask, psutil, docker, prometheus-client)
+├── prometheus.yml        # Prometheus scrape configurations
 ├── static/
 │   ├── style.css         # Outfitted dark mode styles, custom dynamic tables, and overlays
 │   └── script.js         # Sidebar container updater, detail toggles, and dual Chart.js lines
 ├── templates/
 │   └── index.html        # Main template featuring Overview vs Container detail workspaces
+├── grafana/
+│   └── provisioning/     # Auto-provisioned Grafana dashboards and Prometheus datasources
 ├── Dockerfile            # Container definition
-├── docker-compose.yml    # Development stack
+├── docker-compose.yml    # Development stack (DockPulse + Prometheus + Grafana)
 ├── Jenkinsfile           # DevOps pipeline stages
 ├── k8s/
 │   ├── deployment.yaml   # K8s Deployment descriptor
@@ -84,6 +122,21 @@ project/
    python app.py
    ```
 5. **Open Dashboard**: Go to **`http://localhost:5000`** in your browser.
+
+### Docker Compose Execution (Full Observability Stack: DockPulse + Prometheus + Grafana)
+1. **Ensure Docker Desktop is running**.
+2. **Build and start all services in detached mode**:
+   ```bash
+   docker-compose up -d --build
+   ```
+3. **Verify the container stack statuses**:
+   ```bash
+   docker-compose ps
+   ```
+4. **Access the web interfaces**:
+   * **DockPulse dashboard**: `http://localhost:5000`
+   * **Prometheus API & status**: `http://localhost:9090`
+   * **Grafana panels**: `http://localhost:3000` (Default credentials: username `admin` / password `admin`)
 
 ---
 

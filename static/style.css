@@ -1335,4 +1335,52 @@ body {
     box-shadow: 0 0 6px rgba(255, 160, 0, 0.4);
 }
 
+/* Sidebar Integrations List */
+.sidebar-integrations-list {
+    list-style: none;
+    padding: 0 12px;
+    margin-bottom: 20px;
+}
 
+.sidebar-integrations-list li {
+    margin-bottom: 4px;
+}
+
+.sidebar-integrations-list li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-family: var(--font-heading);
+    font-weight: 500;
+    font-size: 13px;
+    border-radius: 6px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+}
+
+.sidebar-integrations-list li a:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+.sidebar-integrations-list li a i.prometheus-color {
+    color: #e6522c; /* Prometheus Orange */
+}
+
+.sidebar-integrations-list li a i.grafana-color {
+    color: #fca326; /* Grafana Orange/Yellow */
+}
+
+.sidebar-integrations-list li a i.external-icon {
+    margin-left: auto;
+    font-size: 10px;
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.sidebar-integrations-list li a:hover i.external-icon {
+    opacity: 1;
+}

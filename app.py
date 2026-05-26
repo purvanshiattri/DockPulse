@@ -10,8 +10,27 @@ from collections import deque
 import psutil
 import docker
 from flask import Flask, jsonify, render_template, request
+from prometheus_client import CollectorRegistry, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
+
+# Prometheus metrics configuration
+# Use a custom CollectorRegistry to isolate our custom metrics and keep it lightweight.
+prometheus_registry = CollectorRegistry()
+
+# Define host Gauges
+host_cpu_gauge = Gauge('dockpulse_host_cpu_percentage', 'Host CPU utilization percentage', registry=prometheus_registry)
+host_ram_gauge = Gauge('dockpulse_host_memory_percentage', 'Host RAM utilization percentage', registry=prometheus_registry)
+host_disk_gauge = Gauge('dockpulse_host_disk_percentage', 'Host Disk utilization percentage', registry=prometheus_registry)
+containers_total_gauge = Gauge('dockpulse_containers_total', 'Total number of containers registered', registry=prometheus_registry)
+containers_running_gauge = Gauge('dockpulse_containers_running', 'Number of currently running containers', registry=prometheus_registry)
+
+# Define container Gauges
+container_cpu_gauge = Gauge('dockpulse_container_cpu_percentage', 'Container CPU usage percentage', ['container_name', 'container_id'], registry=prometheus_registry)
+container_memory_used_gauge = Gauge('dockpulse_container_memory_used_bytes', 'Container memory usage in bytes', ['container_name', 'container_id'], registry=prometheus_registry)
+container_memory_limit_gauge = Gauge('dockpulse_container_memory_limit_bytes', 'Container memory limit in bytes', ['container_name', 'container_id'], registry=prometheus_registry)
+container_status_gauge = Gauge('dockpulse_container_status', 'Container status (1=running, 0=stopped/exited)', ['container_name', 'container_id', 'status'], registry=prometheus_registry)
+
 
 # Thread-safe global store for host system metrics history (last 50 data points)
 # Deque automatically drops the oldest item when it exceeds maxlen.
@@ -320,6 +339,100 @@ def get_container_stats(container_id):
         return jsonify({"success": False, "error": f"Container {container_id} not found"}), 404
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/metrics")
+def metrics():
+    """
+    Prometheus metrics scraping endpoint.
+    Dynamically fetches host resource utilization and container metrics 
+    directly from Docker Engine SDK, exposing them in Prometheus exposition format.
+    """
+    # 1. Gather Host Metrics
+    try:
+        cpu_pct = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        host_cpu_gauge.set(cpu_pct)
+        host_ram_gauge.set(ram.percent)
+        host_disk_gauge.set(disk.percent)
+    except Exception as e:
+        app.logger.error(f"Error collecting host metrics for Prometheus: {e}")
+
+    # 2. Gather Container Metrics
+    client = get_docker_client()
+    if client:
+        try:
+            all_containers = client.containers.list(all=True)
+            containers_total_gauge.set(len(all_containers))
+            
+            # Clear container gauges to prevent stale data accumulation
+            container_cpu_gauge.clear()
+            container_memory_used_gauge.clear()
+            container_memory_limit_gauge.clear()
+            container_status_gauge.clear()
+            
+            running_count = 0
+            for c in all_containers:
+                c_name = c.name
+                c_id = c.short_id
+                status = c.status
+                is_running = 1 if status == "running" else 0
+                if is_running:
+                    running_count += 1
+                
+                # Expose container status (running/stopped/etc.)
+                container_status_gauge.labels(container_name=c_name, container_id=c_id, status=status).set(is_running)
+                
+                # Collect live stats if running
+                if is_running:
+                    try:
+                        # Non-streaming statistics query
+                        stats = c.stats(stream=False)
+                        
+                        # CPU percentage delta calculation
+                        cpu_stats = stats.get('cpu_stats', {})
+                        precpu_stats = stats.get('precpu_stats', {})
+                        cpu_delta = cpu_stats.get('cpu_usage', {}).get('total_usage', 0) - precpu_stats.get('cpu_usage', {}).get('total_usage', 0)
+                        system_delta = cpu_stats.get('system_cpu_usage', 0) - precpu_stats.get('system_cpu_usage', 0)
+                        online_cpus = cpu_stats.get('online_cpus', 1)
+                        
+                        cpu_percent = 0.0
+                        if system_delta > 0 and cpu_delta > 0:
+                            cpu_percent = round((cpu_delta / system_delta) * online_cpus * 100.0, 2)
+                            
+                        container_cpu_gauge.labels(container_name=c_name, container_id=c_id).set(cpu_percent)
+                        
+                        # Memory usage calculation
+                        memory_stats = stats.get('memory_stats', {})
+                        mem_usage = memory_stats.get('usage', 0)
+                        mem_limit = memory_stats.get('limit', 0)
+                        cache = memory_stats.get('stats', {}).get('cache', 0)
+                        if mem_usage > cache:
+                            mem_usage -= cache
+                            
+                        container_memory_used_gauge.labels(container_name=c_name, container_id=c_id).set(mem_usage)
+                        container_memory_limit_gauge.labels(container_name=c_name, container_id=c_id).set(mem_limit)
+                    except Exception as ex:
+                        container_cpu_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
+                        container_memory_used_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
+                        container_memory_limit_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
+                else:
+                    # Stopped containers consume 0 resources
+                    container_cpu_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
+                    container_memory_used_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
+                    container_memory_limit_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
+            
+            containers_running_gauge.set(running_count)
+        except Exception as e:
+            app.logger.error(f"Error collecting container metrics for Prometheus: {e}")
+    else:
+        # Docker Desktop engine is offline
+        containers_total_gauge.set(0)
+        containers_running_gauge.set(0)
+        
+    return generate_latest(prometheus_registry), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 
 if __name__ == "__main__":
