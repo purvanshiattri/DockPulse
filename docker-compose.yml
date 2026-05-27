@@ -16,15 +16,7 @@ services:
     ports:
       - "5000:5000"
     
-    # --------------------------------------------------------------------------
-    # VOLUMES & DOCKER ENGINE ACCESS:
-    # 1. Mount current directory (.) to /app inside the container for hot-reloading code.
-    # 2. Mount the host machine's Docker daemon socket (/var/run/docker.sock).
-    #    CRITICAL SPECIFICATION: The Python Docker SDK inside the container needs 
-    #    to talk to the Docker daemon to get stats. Since the daemon is running on 
-    #    the host machine, we mount the socket file so the container's SDK client 
-    #    can issue API requests (e.g. client.containers.list()) directly to the host.
-    # --------------------------------------------------------------------------
+    
     volumes:
       - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
