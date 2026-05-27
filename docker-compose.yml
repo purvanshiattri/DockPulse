@@ -45,6 +45,19 @@ services:
           
     restart: unless-stopped
 
+  # cAdvisor (Container Advisor) to monitor container resource usage and performance
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: dockpulse-cadvisor
+    ports:
+      - "8089:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    restart: unless-stopped
+
   # Prometheus metrics collection and storage engine
   prometheus:
     image: prom/prometheus:v2.45.0
@@ -58,7 +71,9 @@ services:
       - '--storage.tsdb.path=/prometheus'
     depends_on:
       - dockpulse
+      - cadvisor
     restart: unless-stopped
+
 
   # Grafana analytics visualization layer
   grafana:

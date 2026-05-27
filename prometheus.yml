@@ -10,3 +10,9 @@ scrape_configs:
     static_configs:
       # In the docker-compose bridge network, the Flask app is addressable via the service name 'dockpulse'
       - targets: ['dockpulse:5000']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      # In the docker-compose bridge network, cAdvisor is accessible via the service name 'cadvisor'
+      - targets: ['cadvisor:8080']
+

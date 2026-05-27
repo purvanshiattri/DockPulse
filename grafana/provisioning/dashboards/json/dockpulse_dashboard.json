@@ -43,7 +43,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_containers_total",
+          "expr": "count(container_last_seen{name!=\"\"})",
           "legendFormat": "Total",
           "refId": "A"
         }
@@ -103,7 +103,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_containers_running",
+          "expr": "count(container_last_seen{name!=\"\"})",
           "legendFormat": "Running",
           "refId": "A"
         }
@@ -163,7 +163,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_host_cpu_percentage",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{id=\"/\"}[1m])) / machine_cpu_cores * 100",
           "legendFormat": "CPU %",
           "refId": "A"
         }
@@ -240,7 +240,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_host_memory_percentage",
+          "expr": "container_memory_usage_bytes{id=\"/\"} / machine_memory_bytes * 100",
           "legendFormat": "RAM %",
           "refId": "A"
         }
@@ -310,7 +310,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_host_disk_percentage",
+          "expr": "sum(container_fs_usage_bytes{id=\"/\"}) / sum(container_fs_limit_bytes{id=\"/\"}) * 100",
           "legendFormat": "Disk %",
           "refId": "A"
         }
@@ -380,8 +380,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_container_cpu_percentage > 0",
-          "legendFormat": "{{container_name}} ({{container_id}})",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name!=\"\"}[1m])) by (name) * 100",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -430,8 +430,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_container_memory_used_bytes",
-          "legendFormat": "{{container_name}} ({{container_id}})",
+          "expr": "container_memory_usage_bytes{name!=\"\"}",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -480,8 +480,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "dockpulse_container_status",
-          "legendFormat": "{{container_name}} [{{status}}]",
+          "expr": "container_last_seen{name!=\"\"}",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],

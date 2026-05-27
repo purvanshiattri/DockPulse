@@ -384,45 +384,6 @@ def metrics():
                 
                 # Expose container status (running/stopped/etc.)
                 container_status_gauge.labels(container_name=c_name, container_id=c_id, status=status).set(is_running)
-                
-                # Collect live stats if running
-                if is_running:
-                    try:
-                        # Non-streaming statistics query
-                        stats = c.stats(stream=False)
-                        
-                        # CPU percentage delta calculation
-                        cpu_stats = stats.get('cpu_stats', {})
-                        precpu_stats = stats.get('precpu_stats', {})
-                        cpu_delta = cpu_stats.get('cpu_usage', {}).get('total_usage', 0) - precpu_stats.get('cpu_usage', {}).get('total_usage', 0)
-                        system_delta = cpu_stats.get('system_cpu_usage', 0) - precpu_stats.get('system_cpu_usage', 0)
-                        online_cpus = cpu_stats.get('online_cpus', 1)
-                        
-                        cpu_percent = 0.0
-                        if system_delta > 0 and cpu_delta > 0:
-                            cpu_percent = round((cpu_delta / system_delta) * online_cpus * 100.0, 2)
-                            
-                        container_cpu_gauge.labels(container_name=c_name, container_id=c_id).set(cpu_percent)
-                        
-                        # Memory usage calculation
-                        memory_stats = stats.get('memory_stats', {})
-                        mem_usage = memory_stats.get('usage', 0)
-                        mem_limit = memory_stats.get('limit', 0)
-                        cache = memory_stats.get('stats', {}).get('cache', 0)
-                        if mem_usage > cache:
-                            mem_usage -= cache
-                            
-                        container_memory_used_gauge.labels(container_name=c_name, container_id=c_id).set(mem_usage)
-                        container_memory_limit_gauge.labels(container_name=c_name, container_id=c_id).set(mem_limit)
-                    except Exception as ex:
-                        container_cpu_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
-                        container_memory_used_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
-                        container_memory_limit_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
-                else:
-                    # Stopped containers consume 0 resources
-                    container_cpu_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
-                    container_memory_used_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
-                    container_memory_limit_gauge.labels(container_name=c_name, container_id=c_id).set(0.0)
             
             containers_running_gauge.set(running_count)
         except Exception as e:
