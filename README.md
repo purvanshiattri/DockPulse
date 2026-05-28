@@ -29,22 +29,14 @@ If Docker Desktop is offline, DockPulse warns the user gracefully via a glassmor
          |   DockPulse UI        |   |    Prometheus TSDB        |
          |   - Port 5000         |   |    - Port 9090            |
          |   - Custom Observability| |    - /metrics target      |
-         +-----------------------+   +-----+---------------------+
-                                           |
-                                           | (QL Queries / Pull)
-                                           v
-                                     +-----+---------------------+
-                                     |    Grafana Dashboards     |
-                                     |    - Port 3000                |
-                                     |    - Pre-provisioned Panels   |
-                                     +---------------------------+
+         +-----------------------+   +---------------------------+
 ```
 
 ### Key Highlights
 1. **True Real-time SDK Integration**: No more simulated container metrics. DockPulse retrieves raw statistics directly from the Docker daemon socket/pipe, parsing metrics like delta CPU ratios, virtual ethernet network packages, and startup ISO dates.
 2. **Self-Healing Connection Loop**: If DockPulse loses connection to Docker Desktop (or if the server is started while Docker is stopped), a prominent overlay warning is shown. The frontend runs a lightweight poll checking daemon status, automatically removing the block the moment Docker starts.
 3. **Double Live Graphing**: When you select a container from the sidebar list, DockPulse resets the active graph contexts and plots isolated real-time lines plotting container CPU load (%) and memory usage (MB) side-by-side.
-4. **Observability Integration**: DockPulse hosts a native `/metrics` exporter endpoint, exposing local host resources and real-time container metrics. Prometheus scrapes this data into a time-series database, and Grafana queries it to render historical graphs.
+4. **Observability Integration**: DockPulse hosts a native `/metrics` exporter endpoint, exposing local host resources and real-time container metrics. Prometheus scrapes this data into a time-series database.
 
 ---
 
@@ -64,14 +56,10 @@ Prometheus acts as the centralized time-series metrics collection and storage en
   * `dockpulse_container_memory_used_bytes`: Container RSS RAM allocation (cache subtracted).
   * `dockpulse_container_status`: State index (1 for running, 0 for stopped/exited).
 
-### 2. Grafana Dashboard Provisioning
-Grafana serves as the visualization and advanced analytics interface.
-* **Automatic Datasource Setup**: Auto-provisions the local Prometheus container (`http://prometheus:9090`) as the default datasource.
-* **Pre-configured Dashboards**: Auto-loads a custom DevOps dashboard containing CPU, RAM, and Disk Gauges, container lifecycle state timelines, and historical line graphs plotting individual container workloads over time.
-* **Accessing the Stack**:
+### 2. Accessing the Stack
+* **Web Interfaces**:
   * DockPulse Application: `http://localhost:5000`
   * Prometheus Dashboard: `http://localhost:9090`
-  * Grafana Telemetry Panels: `http://localhost:3000` (Default credentials: `admin` / `admin`)
 
 ---
 
@@ -88,10 +76,8 @@ project/
 │   └── script.js         # Sidebar container updater, detail toggles, and dual Chart.js lines
 ├── templates/
 │   └── index.html        # Main template featuring Overview vs Container detail workspaces
-├── grafana/
-│   └── provisioning/     # Auto-provisioned Grafana dashboards and Prometheus datasources
 ├── Dockerfile            # Container definition
-├── docker-compose.yml    # Development stack (DockPulse + Prometheus + Grafana)
+├── docker-compose.yml    # Development stack (DockPulse + Prometheus)
 ├── Jenkinsfile           # DevOps pipeline stages
 ├── k8s/
 │   ├── deployment.yaml   # K8s Deployment descriptor
@@ -123,7 +109,7 @@ project/
    ```
 5. **Open Dashboard**: Go to **`http://localhost:5000`** in your browser.
 
-### Docker Compose Execution (Full Observability Stack: DockPulse + Prometheus + Grafana)
+### Docker Compose Execution (Observability Stack: DockPulse + Prometheus)
 1. **Ensure Docker Desktop is running**.
 2. **Build and start all services in detached mode**:
    ```bash
@@ -136,7 +122,6 @@ project/
 4. **Access the web interfaces**:
    * **DockPulse dashboard**: `http://localhost:5000`
    * **Prometheus API & status**: `http://localhost:9090`
-   * **Grafana panels**: `http://localhost:3000` (Default credentials: username `admin` / password `admin`)
 
 ---
 

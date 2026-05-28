@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: grafana-lite-deployment
+  name: dockpulse-deployment
   labels:
-    app: grafana-lite
+    app: dockpulse
     tier: frontend
 spec:
   # Maintain high availability with 2 replicas
@@ -15,15 +15,15 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: grafana-lite
+      app: dockpulse
   template:
     metadata:
       labels:
-        app: grafana-lite
+        app: dockpulse
     spec:
       containers:
       - name: dashboard-app
-        image: grafana-lite:latest
+        image: dockpulse:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000

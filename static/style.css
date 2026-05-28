@@ -1,5 +1,5 @@
 /* 
-   Grafana-Lite Premium Theme Stylesheet
+   DockPulse Premium Theme Stylesheet
    Designed to replicate a high-end DevOps cloud monitoring console.
    Utilizes customized CSS variables, flexible grids, interactive transition layers,
    and dark mode aesthetics.
@@ -16,7 +16,7 @@
     --text-primary: #eceded;
     --text-secondary: #9fa2a5;
     
-    /* Accents (Grafana Dashboard Vibe) */
+    /* Accents (observability style) */
     --accent-cpu: #00d2ff;
     --accent-ram: #ff577f;
     --accent-disk: #ffa000;
@@ -1370,9 +1370,7 @@ body {
     color: #e6522c; /* Prometheus Orange */
 }
 
-.sidebar-integrations-list li a i.grafana-color {
-    color: #fca326; /* Grafana Orange/Yellow */
-}
+
 
 .sidebar-integrations-list li a i.external-icon {
     margin-left: auto;

@@ -48,7 +48,7 @@ Observability is traditionally achieved either through local command-line interf
 1. **Docker Stats CLI (`docker stats`)**:
    * *Description*: The default CLI tool for viewing container streams.
    * *Limitations*: Offers no historical context or charts; data disappears as it scrolls. It requires terminal access and does not support remote web dashboard viewing or aggregation.
-2. **Prometheus + Grafana + Node Exporter + cAdvisor**:
+2. **Prometheus + Node Exporter + cAdvisor**:
    * *Description*: The standard production observability stack.
    * *Limitations*: Highly resource-intensive and complex. Setting it up requires configuring multiple services, managing TSDB storage, mapping network ports, and writing custom PromQL queries. It is excessive for local staging and development laptops.
 3. **Portainer**:
@@ -330,8 +330,8 @@ To transition from manual command-line monitoring to DockPulse, the deployment f
 * **Adaptive Maintenance**: Adding support for alternative container runtimes like Podman or containerd.
 * **Perfective Maintenance**: Integrating the application with standard production monitoring stacks.
 
-#### 8.3.2 Prometheus and Grafana Observability Roadmap
-To scale DockPulse for multi-host and production environments, the platform is designed to integrate with Prometheus and Grafana:
+#### 8.3.2 Prometheus Observability Roadmap
+To scale DockPulse for multi-host and production environments, the platform is designed to integrate with Prometheus:
 
 ```mermaid
 graph TD
@@ -343,17 +343,14 @@ graph TD
 
     subgraph MonitoringNode [Central Management Node]
         PROM[(Prometheus TSDB)]
-        GRAF[Grafana Visualization Dashboard]
     end
 
     DOCK -->|Container Metrics| APP
     APP -->|Exposes Prometheus Schema| EXP
     EXP -.->|Scrapes /metrics endpoint| PROM
-    PROM -->|Aggregated Time-Series Data| GRAF
 ```
 
 1. **Prometheus Scraping**: Exposes container statistics at a `/metrics` endpoint in Prometheus format.
-2. **Grafana Dashboards**: Allows scraping data from multiple DockPulse nodes, providing centralized visualization for large-scale container clusters.
 
 ---
 
@@ -374,7 +371,7 @@ DockPulse is fully functional. The application collects host and container metri
 
 ## 10. User Manual
 
-This user manual details how an end-user navigates, operates, and explores the DockPulse observability dashboard application once it is active. The application provides Grafana-style telemetry panels, dynamic data charts, and real-time container discovery to simplify containerized node management.
+This user manual details how an end-user navigates, operates, and explores the DockPulse observability dashboard application once it is active. The application provides high-performance telemetry panels, dynamic data charts, and real-time container discovery to simplify containerized node management.
 
 ### 10.1 Interface Layout Overview
 The DockPulse dashboard is divided into three primary visual zones:
@@ -402,7 +399,7 @@ Beside each container name in the sidebar, a colored status dot indicates its he
 ---
 
 ### 10.3 Cluster Overview Workspace
-When no container is selected, the main content area defaults to the **Cluster Overview** dashboard. This page mimics modern, single-pane-of-glass dashboards (such as Grafana) to give administrators an instant view of system health.
+When no container is selected, the main content area defaults to the **Cluster Overview** dashboard. This page mimics modern, single-pane-of-glass dashboards to give administrators an instant view of system health.
 
 #### 10.3.1 Cluster Metrics Cards
 Four card panels display key operational metrics:

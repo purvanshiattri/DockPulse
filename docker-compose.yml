@@ -67,18 +67,5 @@ services:
     restart: unless-stopped
 
 
-  # Grafana analytics visualization layer
-  grafana:
-    image: grafana/grafana:10.2.0
-    container_name: dockpulse-grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    depends_on:
-      - prometheus
-    restart: unless-stopped
+
 
