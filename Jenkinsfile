@@ -3,50 +3,44 @@ pipeline {
 
     stages {
 
-        // Pull code from GitHub
+        // Get latest code from GitHub
         stage('Checkout Code') {
             steps {
-                echo 'Fetching latest code...'
                 checkout scm
             }
         }
 
-        // Deploy to AWS EC2
-        stage('Deploy to EC2') {
+        // Build Docker image
+        stage('Build Docker Image') {
             steps {
-                echo 'Deploying application to EC2...'
+                sh 'docker build -t dockpulse .'
+            }
+        }
 
-                withCredentials([
-                    sshUserPrivateKey(
-                        credentialsId: 'ec2-ssh-key',
-                        keyFileVariable: 'SSH_KEY'
-                    )
-                ]) {
+        // Stop old container and run new one
+        stage('Deploy Container') {
+            steps {
+                sh 'docker stop dockpulse-container || true'
+                sh 'docker rm dockpulse-container || true'
 
-                    // Copy deploy script
-                    sh '''
-                    scp -i $SSH_KEY -o StrictHostKeyChecking=no \
-                    deploy.sh ec2-user@13.233.252.35:/home/ec2-user/
-                    '''
-
-                    // Run deploy script on EC2
-                    sh '''
-                    ssh -i $SSH_KEY -o StrictHostKeyChecking=no \
-                    ec2-user@13.233.252.35 \
-                    "chmod +x /home/ec2-user/deploy.sh && /home/ec2-user/deploy.sh"
-                    '''
-                }
+                sh '''
+                docker run -d \
+                -p 5001:5000 \
+                --name dockpulse-container \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                dockpulse
+                '''
             }
         }
     }
 
     post {
         success {
-            echo 'Deployment Successful!'
+            echo 'DockPulse deployed successfully!'
         }
 
         failure {
-            echo 'Deployment Failed!'
+            echo 'Pipeline failed!'
         }
     }
 }
