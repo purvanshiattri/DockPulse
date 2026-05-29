@@ -29,11 +29,11 @@ pipeline {
         stage('2. Deploy to AWS EC2') {
             steps {
                 echo 'Connecting to AWS EC2 instance and starting deployment...'
-                sshagent(credentials: ['ec2-ssh-key']) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
                     // Transfer the deployment script to EC2
-                    sh 'scp -o StrictHostKeyChecking=no deploy.sh ec2-user@13.233.252.35:/home/ec2-user/deploy.sh'
+                    sh 'scp -i $SSH_KEY -o StrictHostKeyChecking=no deploy.sh ec2-user@13.233.252.35:/home/ec2-user/deploy.sh'
                     // Execute the script on EC2
-                    sh 'ssh -o StrictHostKeyChecking=no ec2-user@13.233.252.35 "chmod +x /home/ec2-user/deploy.sh && /home/ec2-user/deploy.sh"'
+                    sh 'ssh -i $SSH_KEY -o StrictHostKeyChecking=no ec2-user@13.233.252.35 "chmod +x /home/ec2-user/deploy.sh && /home/ec2-user/deploy.sh"'
                 }
             }
         }
