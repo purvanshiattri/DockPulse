@@ -1,46 +1,54 @@
 pipeline {
     agent any
 
-    stages {
+    options {
+        // Prevent concurrent builds on the same agent workspace to avoid conflicts
+        disableConcurrentBuilds()
+        // Print build timestamps in the console logs for easier debugging
+        timestamps()
+    }
 
-        // Get latest code from GitHub
-        stage('Checkout Code') {
+    stages {
+        // STAGE 1: Pull the latest source code from the Git repository (GitHub)
+        stage('1. Checkout Code') {
             steps {
+                echo 'Checking out revision from source repository...'
                 checkout scm
             }
         }
 
-        // Build Docker image
-        stage('Build Docker Image') {
+        // STAGE 2: Deploy to AWS EC2 via SSH
+        // --------------------------------------------------------------------------
+        // DEPLOYMENT TO AWS EC2:
+        // 1. Secure Authentication: Uses the Jenkins sshagent plugin and the 
+        //    'ec2-ssh-key' credential containing the new-kehy.pem private key.
+        // 2. Transfer Script: Copies deploy.sh to the home directory of the EC2 instance.
+        // 3. Execution: Grants execution permission and runs deploy.sh to update the 
+        //    Docker Compose services on the EC2 host.
+        // --------------------------------------------------------------------------
+        stage('2. Deploy to AWS EC2') {
             steps {
-                sh 'docker build -t dockpulse .'
-            }
-        }
-
-        // Stop old container and run new one
-        stage('Deploy Container') {
-            steps {
-                sh 'docker stop dockpulse-container || true'
-                sh 'docker rm dockpulse-container || true'
-
-                sh '''
-                docker run -d \
-                -p 5001:5000 \
-                --name dockpulse-container \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                dockpulse
-                '''
+                echo 'Connecting to AWS EC2 instance and starting deployment...'
+                sshagent(credentials: ['ec2-ssh-key']) {
+                    // Transfer the deployment script to EC2
+                    sh 'scp -o StrictHostKeyChecking=no deploy.sh ec2-user@13.233.252.35:/home/ec2-user/deploy.sh'
+                    // Execute the script on EC2
+                    sh 'ssh -o StrictHostKeyChecking=no ec2-user@13.233.252.35 "chmod +x /home/ec2-user/deploy.sh && /home/ec2-user/deploy.sh"'
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'DockPulse deployed successfully!'
+            echo '========================================================================'
+            echo '  CI/CD PIPELINE EXECUTION SUCCEEDED: DEPLOYED TO AWS EC2 SUCCESSFULLY  '
+            echo '========================================================================'
         }
-
         failure {
-            echo 'Pipeline failed!'
+            echo '========================================================================'
+            echo '  CI/CD PIPELINE EXECUTION FAILED: CHECK CONSOLE OUTPUT FOR FAILURE LOG '
+            echo '========================================================================'
         }
     }
 }
