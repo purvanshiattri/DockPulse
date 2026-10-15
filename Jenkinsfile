@@ -2,100 +2,80 @@ pipeline {
     agent any
 
     environment {
-        AWS_DEFAULT_REGION = env.AWS_REGION ?: 'us-east-1'
-        IMAGE_NAME         = 'dockpulse'
-        IMAGE_TAG          = env.BUILD_NUMBER ?: 'latest'
-        ECR_REGISTRY       = env.AWS_ECR_REGISTRY ?: ''
-        APP_PORT           = env.CONTAINER_PORT ?: '5000'
+        PYTHON_EXE = 'C:/Users/Purvanshi Attri/AppData/Local/Programs/Python/Python313/python.exe'
+        DOCKER_EXE = 'C:/Users/Purvanshi Attri/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe'
+
+        AWS_DEFAULT_REGION = 'us-east-1'
+        IMAGE_NAME = 'dockpulse'
+        IMAGE_TAG = 'latest'
+        ECR_REGISTRY = ''
     }
 
     stages {
-
-        // 1. Get latest code from version control
         stage('Checkout Code') {
             steps {
-                checkout scm
+                bat '''
+                if not exist .git (
+                    git clone https://github.com/purvanshiattri/DockPulse.git .
+                    if errorlevel 1 exit /b 1
+                ) else (
+                    git pull origin main
+                    if errorlevel 1 exit /b 1
+                )
+                '''
             }
         }
 
-        // 2. Automated Quality & Intelligence Unit Tests
         stage('Run Unit Tests') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'python -m unittest discover tests'
-                    } else {
-                        bat 'python -m unittest discover tests'
-                    }
-                }
+                bat '"%PYTHON_EXE%" --version'
+                bat '"%PYTHON_EXE%" -m unittest discover -s tests -v'
             }
         }
 
-        // 3. Build & Tag Container Image
         stage('Build Docker Image') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'docker build -t dockpulse:latest -t devopsproj-dockpulse:latest .'
-                    } else {
-                        bat 'docker build -t dockpulse:latest -t devopsproj-dockpulse:latest .'
-                    }
-                }
+                bat '"%DOCKER_EXE%" version'
+                bat '"%DOCKER_EXE%" build -t dockpulse:latest -t devopsproj-dockpulse:latest .'
             }
         }
 
-        // 4. Optional Publish to Container Registry for AWS Deployment
         stage('Publish to Registry') {
             when {
-                expression { return env.ECR_REGISTRY != null && env.ECR_REGISTRY != '' }
-            }
-            steps {
-                script {
-                    echo "Publishing ${IMAGE_NAME}:${IMAGE_TAG} to ${ECR_REGISTRY}..."
-                    if (isUnix()) {
-                        sh "docker tag ${IMAGE_NAME}:latest ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-                        sh "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-                    } else {
-                        bat "docker tag ${IMAGE_NAME}:latest ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-                        bat "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-                    }
+                expression {
+                    return env.ECR_REGISTRY?.trim()
                 }
             }
-        }
-
-        // 4. Deploy or Recreate Container Instance
-        stage('Deploy Container') {
             steps {
-                script {
-                    if (isUnix()) {
-                        sh 'docker stop dockpulse-container || true'
-                        sh 'docker rm dockpulse-container || true'
-                        sh '''
-                        docker run -d \
-                          -p 5001:5000 \
-                          --name dockpulse-container \
-                          -v /var/run/docker.sock:/var/run/docker.sock \
-                          dockpulse:latest
-                        '''
-                    } else {
-                        bat '''
-                        docker stop dockpulse-container 2>nul || exit 0
-                        docker rm dockpulse-container 2>nul || exit 0
-                        docker run -d -p 5001:5000 --name dockpulse-container -v /var/run/docker.sock:/var/run/docker.sock dockpulse:latest
-                        '''
-                    }
-                }
+                bat '"%DOCKER_EXE%" tag dockpulse:latest "%ECR_REGISTRY%/dockpulse:%IMAGE_TAG%"'
+                bat '"%DOCKER_EXE%" push "%ECR_REGISTRY%/dockpulse:%IMAGE_TAG%"'
             }
         }
-    }
 
-    post {
-        success {
-            echo 'DockPulse CI/CD Pipeline executed successfully! Platform is healthy.'
+        stage('Deploy Local Container') {
+            steps {
+                bat '''
+                "%DOCKER_EXE%" rm -f dockpulse-container 2>nul
+                "%DOCKER_EXE%" run -d -p 5001:5000 --name dockpulse-container -v /var/run/docker.sock:/var/run/docker.sock dockpulse:latest
+                if errorlevel 1 exit /b 1
+                '''
+            }
         }
 
-        failure {
-            echo 'Pipeline failed! Check stage console output for debugging diagnostics.'
+        stage('Verify Deployment') {
+            steps {
+                bat '''
+                "%DOCKER_EXE%" ps --filter "name=dockpulse-container"
+                "%DOCKER_EXE%" inspect --format="{{.State.Status}}" dockpulse-container
+                '''
+                echo 'DockPulse deployment verification commands completed.'
+            }
+        }
+
+        stage('Pipeline Complete') {
+            steps {
+                echo 'All DockPulse CI/CD stages completed successfully.'
+            }
         }
     }
 }
