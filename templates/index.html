@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DockPulse | Real-Time Docker Container Monitoring</title>
+    <title>DockPulse 2.0 | Intelligent Container Observability</title>
     <!-- Include Google Font 'Outfit' and 'Inter' for premium modern typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Chart.js for beautiful graphs -->
+    <!-- Chart.js for graphs -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome for sidebar and utility icons -->
+    <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Main stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -21,19 +21,111 @@
         <div class="offline-box">
             <i class="fa-solid fa-triangle-exclamation warning-icon"></i>
             <h2>Docker Engine Not Detected</h2>
-            <p>DockPulse is unable to communicate with Docker Desktop. Please make sure that Docker Desktop is launched and running on your local machine.</p>
+            <p>DockPulse is unable to communicate with Docker Desktop. Please make sure Docker Desktop is launched and running on your local machine.</p>
             <button class="btn-retry" id="btn-docker-retry">
                 <i class="fa-solid fa-arrows-rotate"></i> Retry Connection
             </button>
         </div>
     </div>
 
+    <!-- Threshold Tuning Modal -->
+    <div id="config-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders"></i> Operational Threshold Configuration</h3>
+                <button class="modal-close-btn" id="btn-close-config-modal">&times;</button>
+            </div>
+            <form id="form-config" class="modal-body">
+                <p class="modal-intro">Configure dynamic thresholds for anomaly detection, trend predictions, and autoscaling triggers.</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cfg-cpu-warn">CPU Warning Threshold (%)</label>
+                        <input type="number" id="cfg-cpu-warn" min="10" max="95" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cfg-cpu-crit">CPU Critical Threshold (%)</label>
+                        <input type="number" id="cfg-cpu-crit" min="20" max="100" step="1" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cfg-ram-warn">RAM Warning Threshold (%)</label>
+                        <input type="number" id="cfg-ram-warn" min="10" max="95" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cfg-ram-crit">RAM Critical Threshold (%)</label>
+                        <input type="number" id="cfg-ram-crit" min="20" max="100" step="1" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cfg-target-cpu">Autoscaler Target CPU (%)</label>
+                        <input type="number" id="cfg-target-cpu" min="20" max="90" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cfg-window-samples">Evaluation Window (Samples)</label>
+                        <input type="number" id="cfg-window-samples" min="3" max="30" step="1" required>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="btn-cancel-config">Cancel</button>
+                    <button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Save & Apply Thresholds</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kubernetes Scale Action Modal -->
+    <div id="k8s-scale-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-dharmachakra"></i> Kubernetes Workload Scaling Action</h3>
+                <button class="modal-close-btn" id="btn-close-k8s-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-intro">DockPulse 2.0 Workload Balancing Engine coordinates with the Kubernetes API to execute verified horizontal replica scaling.</p>
+                <div class="k8s-scale-summary">
+                    <div class="k8s-metric-box">
+                        <span class="label">Current Replicas</span>
+                        <span class="val" id="k8s-modal-current">1</span>
+                    </div>
+                    <div class="k8s-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="k8s-metric-box highlight">
+                        <span class="label">Target Replicas</span>
+                        <div class="target-stepper">
+                            <button type="button" class="btn-stepper" id="btn-scale-dec"><i class="fa-solid fa-minus"></i></button>
+                            <span class="val" id="k8s-modal-target">2</span>
+                            <button type="button" class="btn-stepper" id="btn-scale-inc"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="k8s-code-box">
+                    <span class="code-title"><i class="fa-solid fa-terminal"></i> Target Command / Plan:</span>
+                    <pre><code id="k8s-cmd-display">kubectl scale deployment dockpulse-deployment --replicas=2</code></pre>
+                </div>
+                <div class="k8s-note">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span><strong>Live Kubernetes API:</strong> Patches Deployment replicas via <code>apps/v1</code> and verifies actual Pod readiness. Updates <code>deployment.yaml</code> for GitOps tracking.</span>
+                </div>
+                <div id="k8s-scale-status" class="k8s-scale-status" style="display: none;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="btn-cancel-k8s">Cancel</button>
+                    <button type="button" class="btn-primary" id="btn-apply-k8s-scale"><i class="fa-solid fa-cloud-arrow-up"></i> Apply Scaling Plan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Container -->
     <div class="app-container">
-        <!-- Sidebar Navigation (DockPulse Branding) -->
+        <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-logo" id="logo-back-home" style="cursor: pointer;">
                 <i class="fa-solid fa-heart-pulse logo-icon"></i>
-                <span class="logo-text">Dock<span class="logo-accent">Pulse</span></span>
+                <div class="logo-wrap">
+                    <span class="logo-text">Dock<span class="logo-accent">Pulse</span></span>
+                    <span class="version-tag">2.0 AI</span>
+                </div>
             </div>
             
             <nav class="sidebar-nav">
@@ -43,7 +135,7 @@
                     </li>
                 </ul>
                 
-                <!-- Dynamic List of Monitored Containers (From Docker SDK) -->
+                <!-- Dynamic List of Monitored Containers -->
                 <div class="sidebar-section-title">
                     <i class="fa-brands fa-docker"></i> Containers
                 </div>
@@ -52,13 +144,12 @@
                     <span class="count-pill stopped-pill">Stopped: <span id="sidebar-stopped-count">0</span></span>
                 </div>
                 <ul class="sidebar-container-list" id="sidebar-container-list">
-                    <!-- Loaded dynamically via JavaScript API calls -->
                     <li class="container-list-loading">
                         <i class="fa-solid fa-spinner fa-spin"></i> Loading...
                     </li>
                 </ul>
                 
-                <!-- Observability Integrations Section -->
+                <!-- Observability & Management Links -->
                 <div class="sidebar-section-title">
                     <i class="fa-solid fa-square-poll-vertical"></i> Integrations
                 </div>
@@ -70,7 +161,18 @@
                             <i class="fa-solid fa-up-right-from-square external-icon"></i>
                         </a>
                     </li>
-
+                    <li>
+                        <a href="#" id="btn-sidebar-thresholds">
+                            <i class="fa-solid fa-sliders" style="color: var(--accent-disk);"></i>
+                            <span>Thresholds</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="btn-sidebar-k8s">
+                            <i class="fa-solid fa-dharmachakra" style="color: var(--accent-proc);"></i>
+                            <span>Kubernetes Plan</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
             
@@ -95,8 +197,25 @@
                 </div>
                 
                 <div class="header-controls">
+                    <!-- Runtime Mode Badge -->
+                    <div class="runtime-mode-badge" id="runtime-mode-badge" title="Active Platform Runtime">
+                        <i class="fa-brands fa-docker" id="runtime-mode-icon"></i>
+                        <span id="runtime-mode-text">Runtime: Detecting...</span>
+                    </div>
+
+                    <!-- Cluster Condition Badge -->
+                    <div class="cluster-condition-badge condition-normal" id="cluster-condition-badge">
+                        <span class="condition-dot"></span>
+                        <span id="cluster-condition-text">NORMAL</span>
+                    </div>
+
+                    <button class="btn-header-tool" id="btn-open-config-modal" title="Tune Operational Thresholds">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Thresholds</span>
+                    </button>
+
                     <div class="control-group">
-                        <label for="poll-interval"><i class="fa-solid fa-arrows-rotate"></i> Poll Interval:</label>
+                        <label for="poll-interval"><i class="fa-solid fa-arrows-rotate"></i> Poll:</label>
                         <select id="poll-interval" class="custom-select">
                             <option value="2000" selected>2s (Real-Time)</option>
                             <option value="5000">5s (Normal)</option>
@@ -110,27 +229,21 @@
                 </div>
             </header>
 
-            <!-- 1. OVERVIEW VIEW MODE (Default Workspace) -->
+            <!-- 1. OVERVIEW VIEW MODE -->
             <div id="overview-workspace-view" class="workspace-view active">
                 <section class="tab-content active">
                     
                     <!-- Overview Host Header -->
                     <div class="view-header">
-                        <h2>Docker Node Overview</h2>
-                        <p>Real-time physical CPU/RAM consumption mapping alongside active microservice container nodes.</p>
+                        <div class="view-header-title">
+                            <h2>DockPulse 2.0 Observability & Intelligence Hub</h2>
+                            <p>Continuous monitoring, anomaly detection, predictive trend analysis, and workload autoscaling advisory.</p>
+                        </div>
                     </div>
 
-                    <!-- 
-                       OBSERVABILITY CARD LAYOUT OPTIMIZATION:
-                       1. WHY HOST UPTIME WAS REMOVED: Host uptime is a static, slow-changing metric 
-                          that takes up high-priority screen space without providing live actionable alerts. 
-                          By removing it, we keep the overview strictly focused on active container nodes.
-                       2. WHY SIMPLIFIED observability DASHBOARDS IMPROVE CLARITY: Restricting the top-level 
-                          overview to exactly 4 key container and system-wide metrics reduces visual noise 
-                          and cognitive overload, allowing operators to spot CPU spikes or container crashes instantly.
-                    -->
+                    <!-- System Resource Cards Grid -->
                     <div class="metrics-grid">
-                        <!-- Host CPU CARD -->
+                        <!-- Host CPU Card -->
                         <div class="metric-card card-cpu">
                             <div class="card-header">
                                 <span class="card-title">HOST CPU UTILIZATION</span>
@@ -143,7 +256,7 @@
                             <div class="card-subtext" id="cpu-sub">Cores: Monitoring Active</div>
                         </div>
                         
-                        <!-- Host RAM CARD -->
+                        <!-- Host RAM Card -->
                         <div class="metric-card card-ram">
                             <div class="card-header">
                                 <span class="card-title">HOST MEMORY (RAM)</span>
@@ -179,15 +292,151 @@
                         </div>
                     </div>
 
-                    <!-- Host Live Charts Section -->
+                    <!-- ============================================================== -->
+                    <!-- DOCKPULSE 2.0 INTELLIGENCE & WORKLOAD MANAGEMENT SECTION       -->
+                    <!-- ============================================================== -->
+                    <div class="intelligence-section">
+                        <div class="section-title-row">
+                            <div class="section-title-left">
+                                <i class="fa-solid fa-brain section-icon"></i>
+                                <div>
+                                    <h3>Intelligent Observability & Workload Decisions</h3>
+                                    <span class="subtext">Real-time Anomaly Detection &bull; Linear Trend Regression &bull; Kubernetes HPA Advisory</span>
+                                </div>
+                            </div>
+                            <div class="section-title-right">
+                                <span class="status-pill status-pill-normal" id="intel-status-pill">
+                                    <span class="status-indicator-dot"></span>
+                                    <span id="intel-status-text">NORMAL</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="intelligence-grid">
+                            <!-- Card 1: Anomaly & Condition Monitor -->
+                            <div class="intel-card">
+                                <div class="intel-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-shield-virus intel-icon-anomaly"></i>
+                                        <h4>Detected Anomalies</h4>
+                                    </div>
+                                    <span class="intel-badge" id="anomaly-count-badge">0 Issues</span>
+                                </div>
+                                <div class="intel-card-body">
+                                    <ul class="anomaly-list" id="intel-issues-list">
+                                        <li class="nominal-item"><i class="fa-solid fa-circle-check"></i> No active threshold breaches or crash loops detected.</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Predictive Trend Analysis -->
+                            <div class="intel-card">
+                                <div class="intel-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-arrow-trend-up intel-icon-trend"></i>
+                                        <h4>Predictive Trend Analysis</h4>
+                                    </div>
+                                    <span class="trend-badge trend-stable" id="trend-direction-badge">
+                                        <i class="fa-solid fa-minus" id="trend-icon"></i>
+                                        <span id="trend-direction-text">STABLE</span>
+                                    </span>
+                                </div>
+                                <div class="intel-card-body">
+                                    <div class="trend-stat-row">
+                                        <span class="trend-label">CPU Trajectory Velocity:</span>
+                                        <span class="trend-value" id="trend-slope-text">+0.0% / min</span>
+                                    </div>
+                                    <div class="trend-forecast-box" id="trend-forecast-box">
+                                        <i class="fa-solid fa-compass"></i>
+                                        <span id="trend-prediction-text">CPU trajectory is stable. Resource levels within baseline.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Workload Scaling Decision -->
+                            <div class="intel-card">
+                                <div class="intel-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-scale-balanced intel-icon-scale"></i>
+                                        <h4>Workload Balancing Decision</h4>
+                                    </div>
+                                    <span class="scaling-pill scale-keep" id="scaling-action-badge">KEEP CAPACITY</span>
+                                </div>
+                                <div class="intel-card-body">
+                                    <div class="scaling-replicas-row">
+                                        <div class="replica-stat">
+                                            <span class="rep-label">Current Replicas:</span>
+                                            <span class="rep-val" id="scaling-curr-rep">2</span>
+                                        </div>
+                                        <div class="replica-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                                        <div class="replica-stat highlight">
+                                            <span class="rep-label">Recommended:</span>
+                                            <span class="rep-val" id="scaling-rec-rep">2</span>
+                                        </div>
+                                    </div>
+                                    <p class="scaling-reason" id="scaling-reason-text">Workload capacity is optimal for current resource consumption.</p>
+                                    <button class="btn-action-primary" id="btn-open-k8s-modal">
+                                        <i class="fa-solid fa-dharmachakra"></i> Review & Apply K8s Scaling
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Card 4: AI Recommendations -->
+                            <div class="intel-card">
+                                <div class="intel-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-lightbulb intel-icon-rec"></i>
+                                        <h4>AI Workload Recommendations</h4>
+                                    </div>
+                                    <span class="intel-badge">Live Advisory</span>
+                                </div>
+                                <div class="intel-card-body">
+                                    <div class="recommendations-container" id="ai-recommendations-list">
+                                        <div class="rec-item priority-info">
+                                            <div class="rec-header">
+                                                <span class="rec-tag tag-info">STATUS</span>
+                                                <span class="rec-priority">NOMINAL</span>
+                                            </div>
+                                            <p class="rec-text">All monitored microservices operating within normal bounds.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================== -->
+                    <!-- LIVE ALERTS & EVENT FEED PANEL                                 -->
+                    <!-- ============================================================== -->
+                    <div class="events-panel">
+                        <div class="panel-header">
+                            <div class="events-title">
+                                <h3><i class="fa-solid fa-bell"></i> Live Observability Alerts & Event Stream</h3>
+                                <span class="events-count" id="events-count-label">-- events</span>
+                            </div>
+                            <div class="events-filters" id="events-filter-group">
+                                <button class="filter-btn active" data-severity="ALL">All</button>
+                                <button class="filter-btn" data-severity="CRITICAL">Critical</button>
+                                <button class="filter-btn" data-severity="WARNING">Warning</button>
+                                <button class="filter-btn" data-severity="RECOMMENDATION">Recommendations</button>
+                                <button class="filter-btn" data-severity="INFO">Info</button>
+                            </div>
+                        </div>
+                        <div class="events-stream-box" id="events-stream-list">
+                            <div class="events-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading event logs...</div>
+                        </div>
+                    </div>
+
+                    <!-- Workload & Scaling Observability Charts Section -->
                     <div class="charts-row">
-                        <!-- Resource Line Chart (CPU/RAM Timeline) -->
+                        <!-- 1. CPU Utilization & Workload History (Spikes & Configured Threshold) -->
                         <div class="chart-panel line-panel">
                             <div class="panel-header">
-                                <h3><i class="fa-solid fa-chart-area"></i> Host Resource Utilization History</h3>
+                                <h3><i class="fa-solid fa-chart-area"></i> CPU Utilization &amp; Workload History</h3>
                                 <div class="chart-legend">
                                     <span class="legend-item"><span class="legend-dot cpu-bg"></span>CPU (%)</span>
                                     <span class="legend-item"><span class="legend-dot ram-bg"></span>RAM (%)</span>
+                                    <span class="legend-item"><span class="legend-dot threshold-bg"></span>Limit (<span id="legend-cpu-thresh">70%</span>)</span>
                                 </div>
                             </div>
                             <div class="chart-container">
@@ -195,16 +444,32 @@
                             </div>
                         </div>
                         
-                        <!-- Disk History Chart -->
+                        <!-- 2. Scaling & Replica History (Kubernetes / Container Runtime Scaling) -->
                         <div class="chart-panel line-panel">
                             <div class="panel-header">
-                                <h3><i class="fa-solid fa-chart-line"></i> Disk Utilization History</h3>
+                                <h3><i class="fa-solid fa-chart-line"></i> Scaling &amp; Replica History</h3>
                                 <div class="chart-legend">
-                                    <span class="legend-item"><span class="legend-dot disk-bg"></span>Disk (%)</span>
+                                    <span class="legend-item"><span class="legend-dot replicas-bg"></span>Replicas</span>
+                                    <span class="legend-item"><span class="legend-dot recommended-bg"></span>HPA Target</span>
+                                    <span class="legend-item"><span class="legend-dot containers-bg"></span>Containers</span>
                                 </div>
                             </div>
                             <div class="chart-container">
-                                <canvas id="diskHistoryChart"></canvas>
+                                <canvas id="scalingHistoryChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 3. Workload Distribution (Multi-Container / Pod Workload Balancing) -->
+                        <div class="chart-panel line-panel full-on-tablet">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-chart-bar"></i> Workload Distribution</h3>
+                                <div class="chart-legend">
+                                    <span class="legend-item"><span class="legend-dot dist-cpu-bg"></span>Workload CPU</span>
+                                    <span class="legend-badge" id="workload-balance-status"><i class="fa-solid fa-check"></i> Balanced</span>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="workloadDistributionChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -215,7 +480,7 @@
                         <span class="status-badge running-count-badge" id="running-count-badge">Running: --</span>
                     </div>
 
-                    <!-- Containers Table -->
+                    <!-- Containers Table with Actions & Restart Counts -->
                     <div class="table-card">
                         <table class="container-table">
                             <thead>
@@ -223,40 +488,139 @@
                                     <th>Container ID</th>
                                     <th>Container Name</th>
                                     <th>Image Layer</th>
+                                    <th>Restarts</th>
                                     <th>Status</th>
+                                    <th>Health</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="overview-container-table-body">
                                 <tr>
-                                    <td colspan="5" class="loading-state">
+                                    <td colspan="7" class="loading-state">
                                         <i class="fa-solid fa-spinner fa-spin"></i> Initializing socket runtime connections...
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Kubernetes Topology Section (Deployments & Services) -->
+                    <div id="k8s-topology-section" class="k8s-topology-section" style="display: none;">
+                        <div class="dashboard-section-header">
+                            <h2><i class="fa-solid fa-dharmachakra"></i> Kubernetes Cluster Topology</h2>
+                            <span class="status-badge k8s-badge" id="k8s-topology-badge">Kubernetes API Active</span>
+                        </div>
+                        <div class="k8s-topology-grid">
+                            <!-- Deployments Card -->
+                            <div class="topology-card">
+                                <div class="topology-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-cubes topology-icon"></i>
+                                        <h4>Deployments</h4>
+                                    </div>
+                                    <span class="intel-badge" id="k8s-deployments-count">0 Deployments</span>
+                                </div>
+                                <div class="topology-card-body">
+                                    <div class="topology-table-wrap">
+                                        <table class="sub-topology-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Desired</th>
+                                                    <th>Current</th>
+                                                    <th>Ready</th>
+                                                    <th>Available</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="k8s-deployments-tbody">
+                                                <tr><td colspan="5" class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Loading deployments...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Services Card -->
+                            <div class="topology-card">
+                                <div class="topology-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-network-wired topology-icon"></i>
+                                        <h4>Services</h4>
+                                    </div>
+                                    <span class="intel-badge" id="k8s-services-count">0 Services</span>
+                                </div>
+                                <div class="topology-card-body">
+                                    <div class="topology-table-wrap">
+                                        <table class="sub-topology-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Type</th>
+                                                    <th>Cluster IP</th>
+                                                    <th>Ports</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="k8s-services-tbody">
+                                                <tr><td colspan="4" class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Loading services...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Pods Card -->
+                            <div class="topology-card">
+                                <div class="topology-card-header">
+                                    <div class="card-header-left">
+                                        <i class="fa-solid fa-layer-group topology-icon"></i>
+                                        <h4>Pods</h4>
+                                    </div>
+                                    <span class="intel-badge" id="k8s-pods-count">0 Pods</span>
+                                </div>
+                                <div class="topology-card-body">
+                                    <div class="topology-table-wrap">
+                                        <table class="sub-topology-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Ready</th>
+                                                    <th>Restarts</th>
+                                                    <th>Status</th>
+                                                    <th>IP / Node</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="k8s-pods-tbody">
+                                                <tr><td colspan="5" class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Loading pods...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
             </div>
 
-            <!-- 2. CONTAINER DETAIL VIEW MODE (Selected Workspace) -->
+            <!-- 2. CONTAINER DETAIL VIEW MODE -->
             <div id="container-detail-workspace-view" class="workspace-view">
                 <section class="tab-content active">
                     
-                    <!-- Back navigation button -->
+                    <!-- Back navigation button & Container Quick Actions -->
                     <div class="detail-header-action">
                         <button class="btn-back" id="btn-detail-back">
                             <i class="fa-solid fa-arrow-left"></i> Back to Overview
                         </button>
+                        <div class="detail-actions-group" id="detail-actions-group">
+                            <!-- Dynamic Restart/Stop/Start buttons populated via JS -->
+                        </div>
                     </div>
                     
                     <!-- Container Header Title -->
                     <div class="view-header container-details-title-row">
                         <div class="title-left">
-                            <h2 id="detail-container-name">jenkins-server</h2>
-                            <span class="image-name" id="detail-container-image">jenkins/jenkins:lts</span>
+                            <h2 id="detail-container-name">container-name</h2>
+                            <span class="image-name" id="detail-container-image">image:tag</span>
                         </div>
                         <div class="title-right">
+                            <span class="badge-restarts" id="detail-container-restarts">Restarts: 0</span>
                             <span class="badge-status running" id="detail-container-status-badge">
                                 <span class="blink-dot"></span>
                                 <span id="detail-container-status-text">running</span>
@@ -292,7 +656,7 @@
                             <div class="card-subtext" id="detail-ram-pct">Usage Percentage: 0.0%</div>
                         </div>
                         
-                        <!-- Network I/O Bandwidth Card -->
+                        <!-- Network I/O Card -->
                         <div class="metric-card card-disk">
                             <div class="card-header">
                                 <span class="card-title">NETWORK I/O (RX / TX)</span>
@@ -342,6 +706,9 @@
         </main>
     </div>
     
+    <!-- Toast notification container for container actions -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- Core Application Logic Script -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

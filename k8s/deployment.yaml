@@ -21,6 +21,7 @@ spec:
       labels:
         app: dockpulse
     spec:
+      serviceAccountName: dockpulse-sa
       containers:
       - name: dashboard-app
         image: dockpulse:latest

@@ -16,5 +16,5 @@ COPY . .
 # Expose Flask port
 EXPOSE 5000
 
-# Run application
-CMD ["python", "app.py"]
+# Run application using production WSGI server (can be overridden with 'python app.py' in dev)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "60", "app:app"]

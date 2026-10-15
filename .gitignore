@@ -4,3 +4,13 @@ __pycache__/
 venv/
 .env.local
 *.log
+dockpulse_temp.tar
+kubeconfig-docker
+
+
+# Terraform generated files
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
