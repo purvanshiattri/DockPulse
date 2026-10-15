@@ -189,50 +189,18 @@ c:\DevOpsProj\
 
 ---
 
-##  Step-by-Step Viva & Demo Walkthrough Guide
+### Container Visibility and Runtime Monitoring
 
-Use this script during college project presentations to demonstrate every feature of DockPulse 2.0:
+DockPulse discovers and monitors containers available on its connected Docker Engine. The number of containers displayed on the dashboard therefore depends on the workloads running on the monitored host.
 
-### Demo 1: Intelligent Resource Monitoring
-1. Open `http://localhost:5000`.
-2. Observe the **System Resource Cards** showing real-time Host CPU, RAM, and registered container nodes.
-3. In the **Cluster Active Container Feed** table, point out the new **Restarts** count and **Health** condition column.
-4. Click **Inspect** on any container to transition into the **Container Details View**, displaying isolated CPU and RAM Chart.js line charts.
+In the local development environment, multiple containers and supporting services may be running, resulting in a larger number of visible workloads. In the AWS deployment, DockPulse is hosted on an EC2 instance using Docker. Since only a limited number of application containers are currently running on that instance, the dashboard displays fewer containers than the local environment.
 
-### Demo 2: Anomaly Detection & Condition States
-1. In the top navigation bar, show the **Cluster Condition Badge** (`NORMAL`, `WARNING`, `CRITICAL`).
-2. Show the **Detected Anomalies** card in the Intelligence section.
-3. Click the **Thresholds** button in the header. Lower the **CPU Warning Threshold** to `10%` and click **Save & Apply Thresholds**.
-4. Observe the Cluster Condition change to `WARNING` with an active anomaly entry explaining that Host CPU utilization exceeds the threshold.
+This difference is expected and does not necessarily indicate a monitoring failure. Containers running on a developer's local machine are separate from those running on the AWS EC2 instance and are not automatically discovered by the AWS-hosted dashboard.
 
-### Demo 3: Predictive Trend Analysis
-1. In the Intelligence section, showcase the **Predictive Trend Analysis** card.
-2. Note the **Trajectory Velocity** (e.g., `+0.4% / min`) and the **Direction Badge** (`STABLE`, `UPWARD`, or `DOWNWARD`).
-3. Explain the regression slope formula: DockPulse evaluates whether resource growth velocity will lead to a threshold breach before failure occurs.
+To monitor additional workloads, more containers or application services must be deployed on the same Docker Engine, or monitoring must be configured for the additional hosts. DockPulse can then collect the available container and resource metrics to support workload analysis and monitoring.
 
-### Demo 4: AI-Style Workload Recommendation & Scaling Advisory
-1. Inspect the **Workload Balancing Decision** card. Show the **Current Replicas** vs. **Recommended Replicas** and the recommended action (`SCALE UP`, `SCALE DOWN`, or `KEEP CURRENT CAPACITY`).
-2. Point to the **AI Workload Recommendations** list, showing contextual advice tailored to observed metrics (e.g. CPU quota increases, replica scaling, memory leak investigation).
+**Current deployment limitation:** The AWS dashboard reflects the containers accessible to its connected Docker Engine; it does not automatically aggregate containers across multiple machines or environments.
 
-### Demo 5: Kubernetes Scaling Bridge
-1. Click the **Review & Apply K8s Scaling** button.
-2. An interactive modal displays the target replica count and the exact dry-run command:
-   ```bash
-   kubectl scale deployment dockpulse-deployment --replicas=3
-   ```
-3. Click **Apply Scaling Plan**. The application safely updates `k8s/deployment.yaml`, displays a success toast notification, and logs the action into the event feed.
-
-### Demo 6: Container Lifecycle Actions & Safety Guard
-1. In the Container table, find any test container and click **Restart** or **Stop**.
-2. Notice the live action confirmation toast and real-time state change.
-3. Attempt to stop the core `dockpulse-dashboard` service. The backend **Safety Guard** activates and returns a `403 Forbidden` error toast, demonstrating production-grade self-preservation.
-
-### Demo 7: Live Alerts & Event Stream
-1. Scroll down to the **Live Observability Alerts & Event Stream** panel.
-2. Show historical timestamped entries labeled `[CRITICAL]`, `[WARNING]`, `[INFO]`, and `[RECOMMENDATION]`.
-3. Click the filter buttons (`Critical`, `Warning`, `Recommendations`, `Info`) to demonstrate instant client-side event filtering.
-
----
 
 ## 📡 REST API Reference
 
