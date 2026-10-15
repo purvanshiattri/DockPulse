@@ -8,7 +8,7 @@ Designed for modern DevOps practices and realistic single-machine demonstrations
 
 ---
 
-## 🌟 What Changed in DockPulse 2.0?
+##  What Changed in DockPulse 2.0?
 
 | Capability | DockPulse 1.0 (Baseline) | DockPulse 2.0 (Intelligent Platform) |
 | :--- | :--- | :--- |
@@ -24,7 +24,7 @@ Designed for modern DevOps practices and realistic single-machine demonstrations
 
 ---
 
-## 🏗️ Architectural Design & Telemetry Flow
+##  Architectural Design & Telemetry Flow
 
 ```
                                     +------------------------------------------------+
@@ -76,7 +76,7 @@ Designed for modern DevOps practices and realistic single-machine demonstrations
 
 ---
 
-## 🧠 Core Intelligence Modules & Mathematical Algorithms
+##  Core Intelligence Modules & Mathematical Algorithms
 
 ### 1. Multi-Condition Anomaly Detection Engine
 Evaluates telemetry across rolling time windows ($W$ samples, default 6 samples = 12 seconds):
@@ -143,7 +143,7 @@ c:\DevOpsProj\
 
 ---
 
-## 🚀 Setup & Execution Guide
+##  Setup & Execution Guide
 
 ### Option A: Local Bare-Metal Execution (Recommended for Fast Local Development)
 **Prerequisites**: Python 3.10+ and Docker Desktop running.
@@ -189,7 +189,7 @@ c:\DevOpsProj\
 
 ---
 
-## 🧪 Step-by-Step Viva & Demo Walkthrough Guide
+##  Step-by-Step Viva & Demo Walkthrough Guide
 
 Use this script during college project presentations to demonstrate every feature of DockPulse 2.0:
 
@@ -250,18 +250,4 @@ Use this script during college project presentations to demonstrate every featur
 
 ---
 
-## 🎯 Viva & Technical Interview Cheat-Sheet
 
-### Q1: How does DockPulse 2.0 calculate the trend slope without external ML libraries?
-> **Answer:** It uses the least-squares linear regression formula on a sliding window of recent telemetry coordinates. By finding the line of best fit $y = mx + c$, it calculates the slope $m$ in $\%/\text{min}$, providing a lightweight, low-overhead projection of whether CPU or memory is rapidly trending towards a breach.
-
-### Q2: What is the autoscaling algorithm used in DockPulse 2.0?
-> **Answer:** It implements the standard Kubernetes Horizontal Pod Autoscaler (HPA) mathematical model:
-> $$\text{Desired Replicas} = \left\lceil \text{Current Replicas} \times \frac{\text{Current Utilization}}{\text{Target Utilization}} \right\rceil$$
-> Bound by minimum and maximum replica limits.
-
-### Q3: Why is DockPulse 2.0 built without a persistent SQL/NoSQL database?
-> **Answer:** For local developer observability and small cluster nodes, introducing an external database adds significant memory overhead, disk I/O, and setup complexity. DockPulse 2.0 uses thread-safe rolling queues (`collections.deque(maxlen=N)`) in Python memory, which provide $O(1)$ appends and zero chance of memory leaks.
-
-### Q4: How does DockPulse prevent a user from accidentally stopping the monitoring dashboard?
-> **Answer:** The `/api/container/<id>/action` route contains a backend safety guard checking container name and ID against protected infrastructure names (`dockpulse`, `dockpulse-dashboard`, `dockpulse-cadvisor`, `dockpulse-prometheus`). Any stop request targeting core infrastructure is rejected with `403 Forbidden`.
